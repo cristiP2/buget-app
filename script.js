@@ -713,7 +713,7 @@ function editTransaction(id) {
     // Populam campurile de recurenta daca exista date salvate
     if (t.recurrenceMeta) {
         document.getElementById('t-rec-freq').value = t.recurrenceMeta.freq || 'monthly';
-        document.getElementById('t-rec-count').value = t.recurrenceMeta.count || 12;
+        document.getElementById('t-rec-count').value = t.recurrenceMeta.count;
     } else {
         document.getElementById('t-rec-freq').value = 'monthly';
         document.getElementById('t-rec-count').value = 12;

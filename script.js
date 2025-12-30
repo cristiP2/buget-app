@@ -918,7 +918,7 @@ function exportData() {
 function exportToExcel() {
     if(!data.transactions.length) { showToast('Nu există date de exportat.', 'warning'); return; }
     const rows = data.transactions.map(t => ({
-        Data: t.date,
+        Data: t.date.split('-').reverse().join('.'),
         Descriere: t.desc,
         Tip: t.type === 'expense' ? 'Cheltuială' : (t.type === 'income' ? 'Venit' : 'Transfer'),
         Categorie: t.category || '-',
@@ -937,7 +937,7 @@ function exportToPDF() {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
     const rows = data.transactions.map(t => [
-        t.date,
+        t.date.split('-').reverse().join('.'),
         t.desc,
         t.type === 'expense' ? 'Cheltuială' : (t.type === 'income' ? 'Venit' : 'Transfer'),
         t.amount.toFixed(2)

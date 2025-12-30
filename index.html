@@ -218,8 +218,11 @@
         </div>
     </div>
 
-    <div style="display:flex; justify-content:space-between; align-items:center; max-width:1600px; margin:0 auto 20px auto;">
-        <h2 style="margin:0;">Manager Financiar</h2>
+    <div style="display:flex; justify-content:space-between; align-items:center; max-width:1600px; margin:0 auto 20px auto; position:sticky; top:0; z-index:100; background:var(--bg); padding:10px 0; border-bottom:1px solid var(--border);">
+        <div style="display:flex; align-items:center; gap:15px; flex-wrap:wrap;">
+            <h2 style="margin:0;">Manager Financiar</h2>
+            <input type="month" id="month-filter" onchange="applyMonthFilter()" style="font-size: 0.9rem; padding: 5px 10px; border: 1px solid var(--border); border-radius: 6px; background:var(--card-bg); color:var(--text); cursor:pointer; font-weight:bold;">
+        </div>
         <button onclick="toggleTheme()" class="btn-icon" style="width:auto; padding:0 15px; gap:8px; font-weight:600;">
             <i class="fas fa-moon"></i> <span id="theme-text">Dark Mode</span>
         </button>
@@ -252,14 +255,6 @@
         <div class="stat-box" style="border-color: var(--primary);">
             <small>SOLD EFECTIV (Lichid)</small>
             <div class="stat-value text-blue" id="dash-balance">0.00 RON</div>
-        </div>
-    </div>
-
-    <!-- FILTRU LUNA (Global - Mutat aici) -->
-    <div style="max-width:1600px; margin: 0 auto 20px auto; background:var(--card-bg); padding:15px; border-radius:12px; border:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
-        <h3 style="margin:0; border:none; padding:0; font-size:1.1rem;"><i class="fas fa-calendar-alt text-blue" style="margin-right:10px;"></i> Luna Activă</h3>
-        <div style="display:flex; align-items:center; gap:10px;">
-            <input type="month" id="month-filter" onchange="applyMonthFilter()" style="font-size: 1rem; padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; background:var(--input-bg); color:var(--text); cursor:pointer; font-weight:bold;">
         </div>
     </div>
 

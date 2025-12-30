@@ -255,6 +255,14 @@
         </div>
     </div>
 
+    <!-- FILTRU LUNA (Global - Mutat aici) -->
+    <div style="max-width:1600px; margin: 0 auto 20px auto; background:var(--card-bg); padding:15px; border-radius:12px; border:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+        <h3 style="margin:0; border:none; padding:0; font-size:1.1rem;"><i class="fas fa-calendar-alt text-blue" style="margin-right:10px;"></i> Luna Activă</h3>
+        <div style="display:flex; align-items:center; gap:10px;">
+            <input type="month" id="month-filter" onchange="applyMonthFilter()" style="font-size: 1rem; padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; background:var(--input-bg); color:var(--text); cursor:pointer; font-weight:bold;">
+        </div>
+    </div>
+
     <div class="dashboard-grid">
         
         <div class="left-col">
@@ -345,7 +353,6 @@
                         Flux Financiar
                         <i class="fas fa-chevron-right" style="font-size:0.8em; color:#9ca3af;"></i>
                     </span>
-                    <input type="month" id="month-filter" onchange="applyMonthFilter()" style="font-size: 0.9rem; padding: 5px; border: 1px solid var(--border); border-radius: 6px;">
                 </h3>
                 <div id="wrap-flow" style="display: none;">
                     <div style="text-align: right; margin-bottom: 10px; padding-right: 5px;">

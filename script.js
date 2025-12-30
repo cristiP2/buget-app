@@ -1,7 +1,7 @@
 // --- GLOBAL DATA ---
 let data = JSON.parse(localStorage.getItem('budgetApp_v3')) || {
     transactions: [],
-    incomeSources: [{ id: 1, name: "Salariu", total: 0 }],
+    incomeSources: [],
     savings: [],
     debts: [],
     monthlyBudgets: {}
@@ -42,7 +42,10 @@ document.addEventListener('DOMContentLoaded', () => {
     // 6. Init Sounds
     initSoundEffects();
 
-    // 7. Hide Loader
+    // 7. Init Notifications System
+    initNotifications();
+
+    // 8. Hide Loader
     const loader = document.getElementById('app-loader');
     if(loader) {
         setTimeout(() => {
@@ -51,7 +54,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 600); // Mic delay pentru efect
     }
 
-    // 8. Account Form Listener
+    // 9. Account Form Listener
     const accForm = document.getElementById('account-form');
     if(accForm) {
         accForm.addEventListener('submit', (e) => {
@@ -80,6 +83,7 @@ document.addEventListener('DOMContentLoaded', () => {
             saveData();
             closeAccountModal();
             accForm.reset();
+            showToast('Cont salvat cu succes!', 'success');
         });
     }
 });
@@ -114,7 +118,7 @@ function updateDashboard() {
     // Budget
     const budgetInput = document.getElementById('budget-input');
     if(budgetInput) {
-        const budget = data.monthlyBudgets[m] !== undefined ? data.monthlyBudgets[m] : 8000;
+        const budget = data.monthlyBudgets[m] !== undefined ? data.monthlyBudgets[m] : 0;
         budgetInput.value = budget;
     }
 
@@ -316,17 +320,23 @@ function toggleCheck(id) {
     if(t) { t.checked = !t.checked; saveData(); }
 }
 function deleteTransaction(id) {
-    if(confirm('Ștergi?')) { data.transactions = data.transactions.filter(x => x.id !== id); saveData(); }
+    showConfirm('Ești sigur că vrei să ștergi această tranzacție?', () => {
+        data.transactions = data.transactions.filter(x => x.id !== id);
+        saveData();
+        showToast('Tranzacție ștearsă.', 'info');
+    });
 }
 function addAccount(type) {
     openAccountModal(type);
 }
 function deleteAccount(type, id) {
-    if(!confirm('Ștergi?')) return;
-    if(type==='income') data.incomeSources = data.incomeSources.filter(x=>x.id!==id);
-    else if(type==='savings') data.savings = data.savings.filter(x=>x.id!==id);
-    else data.debts = data.debts.filter(x=>x.id!==id);
-    saveData();
+    showConfirm('Ștergi acest cont? Datele asociate se pot pierde.', () => {
+        if(type==='income') data.incomeSources = data.incomeSources.filter(x=>x.id!==id);
+        else if(type==='savings') data.savings = data.savings.filter(x=>x.id!==id);
+        else data.debts = data.debts.filter(x=>x.id!==id);
+        saveData();
+        showToast('Cont șters.', 'info');
+    });
 }
 
 function editAccount(type, id) {
@@ -395,7 +405,9 @@ const form = document.getElementById('transaction-form');
 if(form) {
     form.addEventListener('submit', (e) => {
         e.preventDefault();
-        if(editModeId) deleteTransaction(editModeId); // Simple edit: delete old, add new
+        if(editModeId) {
+            data.transactions = data.transactions.filter(x => x.id !== editModeId);
+        }
         
         const type = document.getElementById('t-type').value;
         const amt = parseFloat(document.getElementById('t-amount').value);
@@ -414,6 +426,7 @@ if(form) {
         saveData();
         closeTransactionModal();
         form.reset();
+        showToast('Tranzacție salvată!', 'success');
     });
 }
 
@@ -439,11 +452,39 @@ function exportData() {
     a.download = "backup.json"; document.body.appendChild(a); a.click(); a.remove();
 }
 
+function triggerImport() {
+    document.getElementById('backup-file-input').click();
+}
+
+function importData(input) {
+    const file = input.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const imported = JSON.parse(e.target.result);
+            showConfirm('Atenție! Această acțiune va înlocui toate datele curente cu cele din fișier. Continui?', () => {
+                data = imported;
+                saveData();
+                showToast('Datele au fost restaurate cu succes!', 'success');
+                location.reload();
+            });
+        } catch (err) {
+            showToast('Fișier invalid sau corupt.', 'error');
+        }
+    };
+    reader.readAsText(file);
+    input.value = ''; // Reset pentru a putea selecta acelasi fisier din nou
+}
+
 function openProfileModal() {
     const modal = document.getElementById('profile-modal');
     if(modal) {
         document.getElementById('set-user').value = localStorage.getItem('budget_app_user') || '';
         document.getElementById('set-pin').value = localStorage.getItem('budget_app_pin') || '';
+        document.getElementById('set-sec-q').value = localStorage.getItem('budget_app_sec_q') || '';
+        document.getElementById('set-sec-a').value = localStorage.getItem('budget_app_sec_a') || '';
         modal.style.display = 'flex';
     }
 }
@@ -452,10 +493,16 @@ function closeProfileModal() { document.getElementById('profile-modal').style.di
 function saveProfile() {
     const u = document.getElementById('set-user').value;
     const p = document.getElementById('set-pin').value;
+    const q = document.getElementById('set-sec-q').value;
+    const a = document.getElementById('set-sec-a').value;
+
     if(u) localStorage.setItem('budget_app_user', u); else localStorage.removeItem('budget_app_user');
     if(p) localStorage.setItem('budget_app_pin', p); else localStorage.removeItem('budget_app_pin');
+    if(q) localStorage.setItem('budget_app_sec_q', q); else localStorage.removeItem('budget_app_sec_q');
+    if(a) localStorage.setItem('budget_app_sec_a', a); else localStorage.removeItem('budget_app_sec_a');
+    
     closeProfileModal();
-    alert('Profil actualizat!');
+    showToast('Profil actualizat!', 'success');
 }
 
 function verifyLogin() {
@@ -465,7 +512,35 @@ function verifyLogin() {
     if(enteredPin === storedPin) {
         document.getElementById('login-overlay').style.display = 'none';
         sessionStorage.setItem('pin_verified', 'true');
-    } else alert('PIN Incorect');
+    } else showToast('PIN Incorect', 'error');
+}
+
+function showRecovery() {
+    const q = localStorage.getItem('budget_app_sec_q');
+    if(!q) {
+        showToast('Nu ai setat o întrebare de securitate.', 'warning');
+        return;
+    }
+    document.getElementById('login-form-section').style.display = 'none';
+    document.getElementById('recovery-form-section').style.display = 'block';
+    document.getElementById('rec-question').innerText = q;
+}
+
+function hideRecovery() {
+    document.getElementById('login-form-section').style.display = 'block';
+    document.getElementById('recovery-form-section').style.display = 'none';
+}
+
+function verifyRecovery() {
+    const input = document.getElementById('rec-answer').value;
+    const correct = localStorage.getItem('budget_app_sec_a');
+    if(input === correct) {
+        showToast('PIN-ul a fost eliminat.', 'success');
+        localStorage.removeItem('budget_app_pin');
+        setTimeout(() => location.reload(), 1000);
+    } else {
+        showToast('Răspuns incorect.', 'error');
+    }
 }
 
 // --- SOUND ENGINE (SFX) ---
@@ -512,5 +587,74 @@ function initSoundEffects() {
         if(e.target.tagName === 'BUTTON' || e.target.closest('button') || e.target.tagName === 'A') {
             playSfx('click');
         }
+    });
+}
+
+// --- NOTIFICATIONS SYSTEM ---
+function initNotifications() {
+    // Inject Toast Container
+    const toastCont = document.createElement('div');
+    toastCont.id = 'toast-container';
+    document.body.appendChild(toastCont);
+
+    // Inject Confirm Modal
+    const confirmModal = document.createElement('div');
+    confirmModal.id = 'confirm-modal';
+    confirmModal.className = 'modal-overlay';
+    confirmModal.style.display = 'none';
+    confirmModal.style.zIndex = '10001';
+    confirmModal.innerHTML = `
+        <div class="modal-content text-center" style="max-width:300px;">
+            <div class="mb-15"><i class="fas fa-question-circle" style="font-size:3rem; color:var(--primary);"></i></div>
+            <h3 class="mb-15" style="justify-content:center; border:none;">Confirmare</h3>
+            <p id="confirm-msg" class="mb-20 text-muted">Ești sigur?</p>
+            <div class="flex-between gap-10">
+                <button class="btn-backup w-100" id="btn-confirm-no">Nu</button>
+                <button class="btn-add w-100" id="btn-confirm-yes">Da</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(confirmModal);
+}
+
+function showToast(msg, type = 'info') {
+    const cont = document.getElementById('toast-container');
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    let icon = 'fa-info-circle';
+    if(type==='success') icon='fa-check-circle';
+    if(type==='error') icon='fa-exclamation-circle';
+    if(type==='warning') icon='fa-exclamation-triangle';
+    
+    toast.innerHTML = `<i class="fas ${icon}"></i> <span>${msg}</span>`;
+    cont.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.style.animation = 'fadeOut 0.5s forwards';
+        setTimeout(() => toast.remove(), 500);
+    }, 3000);
+}
+
+function showConfirm(msg, onYes) {
+    const modal = document.getElementById('confirm-modal');
+    document.getElementById('confirm-msg').innerText = msg;
+    modal.style.display = 'flex';
+    
+    const btnYes = document.getElementById('btn-confirm-yes');
+    const btnNo = document.getElementById('btn-confirm-no');
+    
+    // Clone buttons to remove old listeners
+    const newYes = btnYes.cloneNode(true);
+    const newNo = btnNo.cloneNode(true);
+    btnYes.parentNode.replaceChild(newYes, btnYes);
+    btnNo.parentNode.replaceChild(newNo, btnNo);
+    
+    newYes.addEventListener('click', () => {
+        modal.style.display = 'none';
+        if(onYes) onYes();
+    });
+    
+    newNo.addEventListener('click', () => {
+        modal.style.display = 'none';
     });
 }

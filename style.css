@@ -435,3 +435,26 @@ tr:hover td { background: rgba(255,255,255,0.03); }
 .input-with-icon i { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none; }
 .input-with-icon input { padding-left: 45px; }
 .login-logo { font-size: 3rem; color: var(--primary); margin-bottom: 15px; text-shadow: 0 0 20px var(--primary-glow); }
+
+.forgot-pin-link { color: var(--text-muted); font-size: 0.85rem; text-decoration: none; transition: 0.3s; display: inline-block; margin-top: 15px; }
+.forgot-pin-link:hover { color: var(--primary); text-decoration: underline; }
+
+/* --- TOAST NOTIFICATIONS --- */
+#toast-container { position: fixed; top: 20px; right: 20px; z-index: 10000; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
+.toast {
+    background: var(--card-bg); border: 1px solid var(--border); color: var(--text-bright);
+    padding: 15px 20px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    backdrop-filter: blur(15px); display: flex; align-items: center; gap: 12px;
+    animation: slideInRight 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); min-width: 260px;
+    pointer-events: auto;
+}
+.toast.success { border-left: 4px solid var(--green); }
+.toast.error { border-left: 4px solid var(--red); }
+.toast.warning { border-left: 4px solid var(--orange); }
+.toast i { font-size: 1.2rem; }
+.toast.success i { color: var(--green); }
+.toast.error i { color: var(--red); }
+.toast.warning i { color: var(--orange); }
+
+@keyframes slideInRight { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+@keyframes fadeOut { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-20px); } }

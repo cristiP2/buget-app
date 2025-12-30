@@ -1,5 +1,11 @@
 // --- GLOBAL DATA ---
-let data = JSON.parse(localStorage.getItem('budgetApp_v3')) || {
+let data;
+try {
+    data = JSON.parse(localStorage.getItem('budgetApp_v3'));
+} catch (e) {
+    data = null;
+}
+data = data || {
     transactions: [],
     incomeSources: [],
     savings: [],
@@ -401,7 +407,7 @@ function renderCalendar() {
     calView.innerHTML = '';
     const m = localStorage.getItem('current_month');
     const [year, month] = m.split('-').map(Number);
-    ['Lu','Ma','Mi','Jo','Vi','Sâ','Du'].forEach(d => calView.innerHTML += `<div class="calendar-header">${d}</div>`);
+    ['Lu','Ma','Mi','Jo','Vi','Sâ','Du'].forEach(d => calView.innerHTML += `<div class="calendar-header"></div>`);
     
     const firstDay = new Date(year, month - 1, 1);
     const lastDay = new Date(year, month, 0);
@@ -627,6 +633,11 @@ function handleTransactionSubmit() {
                     const oldDate = origT.date;
                     updateT(origT, true);
                     
+                    if (document.getElementById('t-is-recurring').checked) {
+                        const rc = parseInt(document.getElementById('t-rec-count').value) || 1;
+                        origT.desc += ` (1/${rc})`;
+                    }
+                    
                     // Stergem viitorul seriei (tot ce e dupa data veche)
                     data.transactions = data.transactions.filter(x => {
                         if (x.seriesId === origT.seriesId && x.id !== origT.id) {
@@ -682,12 +693,12 @@ function handleTransactionSubmit() {
                     for(let i = 0; i < recCount; i++) {
                         let nextDate = new Date(startDate);
                         if (i > 0) {
-                             if(recFreq === 'daily') nextDate.setDate(startDate.getDate() + i);
-                             if(recFreq === 'weekly') nextDate.setDate(startDate.getDate() + (i * 7));
-                             if(recFreq === 'monthly') nextDate.setMonth(startDate.getMonth() + i);
-                             if(recFreq === 'quarterly') nextDate.setMonth(startDate.getMonth() + (i * 3));
-                             if(recFreq === 'biannually') nextDate.setMonth(startDate.getMonth() + (i * 6));
-                             if(recFreq === 'annually') nextDate.setFullYear(startDate.getFullYear() + i);
+                             if(recFreq === 'daily') nextDate.setUTCDate(startDate.getUTCDate() + i);
+                             if(recFreq === 'weekly') nextDate.setUTCDate(startDate.getUTCDate() + (i * 7));
+                             if(recFreq === 'monthly') nextDate = addMonths(startDate, i);
+                             if(recFreq === 'quarterly') nextDate = addMonths(startDate, i * 3);
+                             if(recFreq === 'biannually') nextDate = addMonths(startDate, i * 6);
+                             if(recFreq === 'annually') nextDate.setUTCFullYear(startDate.getUTCFullYear() + i);
                         }
                         
                         const dateStr = nextDate.toISOString().split('T')[0];
@@ -721,11 +732,12 @@ function handleTransactionSubmit() {
 
     const isRec = document.getElementById('t-is-recurring').checked;
     const seriesId = isRec ? Date.now() : null;
+    const recCount = isRec ? (parseInt(document.getElementById('t-rec-count').value) || 1) : 1;
     
     const t = {
         id: Date.now(),
         date: dateVal,
-        desc: desc,
+        desc: isRec ? stripCounter(desc) + ` (1/${recCount})` : desc,
         amount: finalAmt,
         type: type,
         checked: !isRec && dateVal <= new Date().toISOString().split('T')[0],
@@ -733,7 +745,7 @@ function handleTransactionSubmit() {
         meta: (type === 'credit_payment') ? { principal: principal, interest: interest } : {},
         seriesId: seriesId,
         accountId: accountId,
-        recurrenceMeta: isRec ? { freq: document.getElementById('t-rec-freq').value, count: parseInt(document.getElementById('t-rec-count').value) || 1 } : null
+        recurrenceMeta: isRec ? { freq: document.getElementById('t-rec-freq').value, count: recCount } : null
     };
     data.transactions.push(t);
 
@@ -757,12 +769,12 @@ function generateFutureTransactions(baseT, skipFirst) {
 
     for(let i = startIdx; i < recCount; i++) {
         let nextDate = new Date(startDate);
-        if(recFreq === 'daily') nextDate.setDate(startDate.getDate() + i);
-        if(recFreq === 'weekly') nextDate.setDate(startDate.getDate() + (i * 7));
-        if(recFreq === 'monthly') nextDate.setMonth(startDate.getMonth() + i);
-        if(recFreq === 'quarterly') nextDate.setMonth(startDate.getMonth() + (i * 3));
-        if(recFreq === 'biannually') nextDate.setMonth(startDate.getMonth() + (i * 6));
-        if(recFreq === 'annually') nextDate.setFullYear(startDate.getFullYear() + i);
+        if(recFreq === 'daily') nextDate.setUTCDate(startDate.getUTCDate() + i);
+        if(recFreq === 'weekly') nextDate.setUTCDate(startDate.getUTCDate() + (i * 7));
+        if(recFreq === 'monthly') nextDate = addMonths(startDate, i);
+        if(recFreq === 'quarterly') nextDate = addMonths(startDate, i * 3);
+        if(recFreq === 'biannually') nextDate = addMonths(startDate, i * 6);
+        if(recFreq === 'annually') nextDate.setUTCFullYear(startDate.getUTCFullYear() + i);
 
         const dateStr = nextDate.toISOString().split('T')[0];
         const isFuture = dateStr > new Date().toISOString().split('T')[0];
@@ -1172,6 +1184,15 @@ function showRecurringEditPrompt(onOne, onSeries, onAll) {
     nSeries.addEventListener('click', () => { modal.style.display = 'none'; onSeries(); });
     nAll.addEventListener('click', () => { modal.style.display = 'none'; onAll(); });
     nCancel.addEventListener('click', () => { modal.style.display = 'none'; });
+}
+
+function addMonths(date, months) {
+    const d = new Date(date);
+    const day = d.getUTCDate();
+    d.setUTCMonth(d.getUTCMonth() + months);
+    // Daca ziua s-a schimbat (overflow), setam la ultima zi a lunii anterioare
+    if (d.getUTCDate() !== day) d.setUTCDate(0);
+    return d;
 }
 
 function setupCategoryCombobox() {

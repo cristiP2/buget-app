@@ -609,8 +609,21 @@ function handleTransactionSubmit() {
                     updateT(origT, true);
                     finishEdit('Tranzacție actualizată!');
                 }, () => {
-                    const futureTxs = data.transactions.filter(x => x.seriesId === origT.seriesId && x.date >= origT.date && x.id >= origT.id);
-                    futureTxs.forEach(t => updateT(t, false));
+                    const oldDate = origT.date;
+                    updateT(origT, true);
+                    
+                    // Stergem viitorul seriei (tot ce e dupa data veche)
+                    data.transactions = data.transactions.filter(x => {
+                        if (x.seriesId === origT.seriesId && x.id !== origT.id) {
+                            if (x.date > oldDate || (x.date === oldDate && x.id > origT.id)) return false;
+                        }
+                        return true;
+                    });
+
+                    // Regeneram seria pe baza setarilor noi din formular
+                    if (document.getElementById('t-is-recurring').checked) generateFutureTransactions(origT, true);
+                    else origT.seriesId = null;
+
                     finishEdit('Serie actualizată!');
                 });
                 return;
@@ -635,7 +648,8 @@ function handleTransactionSubmit() {
         category: (type === 'expense') ? cat : null,
         meta: (type === 'credit_payment') ? { principal: principal, interest: interest } : {},
         seriesId: seriesId,
-        accountId: accountId
+        accountId: accountId,
+        recurrenceMeta: isRec ? { freq: document.getElementById('t-rec-freq').value, count: parseInt(document.getElementById('t-rec-count').value) || 1 } : null
     };
     data.transactions.push(t);
 
@@ -695,6 +709,16 @@ function editTransaction(id) {
     
     document.getElementById('t-is-recurring').checked = !!t.seriesId;
     toggleRecurrenceOptions();
+    
+    // Populam campurile de recurenta daca exista date salvate
+    if (t.recurrenceMeta) {
+        document.getElementById('t-rec-freq').value = t.recurrenceMeta.freq || 'monthly';
+        document.getElementById('t-rec-count').value = t.recurrenceMeta.count || 12;
+    } else {
+        document.getElementById('t-rec-freq').value = 'monthly';
+        document.getElementById('t-rec-count').value = 12;
+    }
+
     updateFormUI(); updateSelects();
     
     if (t.accountId) {

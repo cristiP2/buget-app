@@ -392,7 +392,7 @@ function renderTransactions() {
         }
         tr.innerHTML = `
             <td class="check-col"><input type="checkbox" ${t.checked ? 'checked' : ''} onchange="toggleCheck(${t.id})"></td>
-            <td>${t.date.slice(8)}</td>
+            <td>${t.date.split('-').reverse().join('.')}</td>
             <td><div>${icon} ${t.desc}</div></td>
             <td class="amount-col ${color}">${t.amount.toFixed(2)} ${cur}</td>
             <td><button class="btn-icon" onclick="editTransaction(${t.id})"><i class="fas fa-pen"></i></button>
@@ -602,17 +602,19 @@ function handleTransactionSubmit() {
                 
                 const isRec = document.getElementById('t-is-recurring').checked;
                 if (isRec) {
+                    const recCount = parseInt(document.getElementById('t-rec-count').value) || 1;
                     t.recurrenceMeta = { 
                         freq: document.getElementById('t-rec-freq').value, 
-                        count: parseInt(document.getElementById('t-rec-count').value) || 1
+                        count: recCount
                     };
+
+                    if (!t.seriesId) {
+                        t.seriesId = Date.now();
+                        t.desc += ` (1/${recCount})`;
+                        generateFutureTransactions(t, true);
+                    }
                 } else {
                     t.recurrenceMeta = null;
-                }
-
-                if (isRec && !t.seriesId) {
-                    t.seriesId = Date.now();
-                    generateFutureTransactions(t, true);
                 }
             };
 
@@ -831,7 +833,7 @@ function openDayModal(dateStr) {
     const title = document.getElementById('day-modal-title');
     if(!modal || !list) return;
     const cur = data.currency || 'RON';
-    title.innerText = `Tranzacții: ${dateStr}`;
+    title.innerText = `Tranzacții: ${dateStr.split('-').reverse().join('.')}`;
     list.innerHTML = '';
     const dayTxs = data.transactions.filter(t => t.date === dateStr);
     if(dayTxs.length === 0) {

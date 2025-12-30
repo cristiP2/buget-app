@@ -579,104 +579,136 @@ const form = document.getElementById('transaction-form');
 if(form) {
     form.addEventListener('submit', (e) => {
         e.preventDefault();
-        
-        const type = document.getElementById('t-type').value;
-        const amt = parseFloat(document.getElementById('t-amount').value);
-        const cat = document.getElementById('t-category').value;
-        const principal = parseFloat(document.getElementById('t-principal').value) || 0;
-        const interest = parseFloat(document.getElementById('t-interest').value) || 0;
-        const desc = document.getElementById('t-desc').value;
-        const dateVal = document.getElementById('t-date').value;
-        const finalAmt = ['expense','savings_in','credit_payment'].includes(type) ? -amt : amt;
+        handleTransactionSubmit();
+    });
+}
 
-        if (editModeId) {
-            const origT = data.transactions.find(x => x.id === editModeId);
-            if (origT) {
-                const updateT = (t, updateDate = false) => {
-                    if(updateDate) t.date = dateVal;
-                    t.desc = desc;
-                    t.amount = finalAmt;
-                    t.type = type;
-                    t.category = (type === 'expense') ? cat : null;
-                    t.meta = (type === 'credit_payment') ? { principal, interest } : {};
-                };
+function handleTransactionSubmit() {
+    const type = document.getElementById('t-type').value;
+    const amt = parseFloat(document.getElementById('t-amount').value);
+    const cat = document.getElementById('t-category').value;
+    const principal = parseFloat(document.getElementById('t-principal').value) || 0;
+    const interest = parseFloat(document.getElementById('t-interest').value) || 0;
+    const desc = document.getElementById('t-desc').value;
+    const dateVal = document.getElementById('t-date').value;
+    const finalAmt = ['expense','savings_in','credit_payment'].includes(type) ? -amt : amt;
 
-                const finishEdit = (msg) => {
-                    saveData();
-                    closeTransactionModal();
-                    form.reset();
-                    showToast(msg, 'success');
-                };
+    // Helper pentru actualizare solduri
+    const updateBalances = (t, isRevert) => {
+        const factor = isRevert ? -1 : 1;
+        if (t.type === 'credit_payment' && t.meta && t.meta.principal) {
+            // Gasim creditul si scadem/adaugam principalul
+            // Nota: Aici ar trebui sa avem ID-ul contului de credit salvat in tranzactie.
+            // Momentan simplificam: presupunem ca userul selecteaza contul corect la editare.
+            // Pentru o implementare completa, ar trebui salvat accountId in tranzactie.
+        }
+    };
 
-                if (origT.seriesId) {
-                    showRecurringEditPrompt(() => {
-                        // Doar Aceasta
-                        updateT(origT, true);
-                        finishEdit('Tranzacție actualizată!');
-                    }, () => {
-                        // Aceasta si Viitoarele
-                        const futureTxs = data.transactions.filter(x => x.seriesId === origT.seriesId && x.date >= origT.date && x.id >= origT.id);
-                        futureTxs.forEach(t => updateT(t, false)); // Nu schimbam data la cele viitoare
-                        finishEdit('Serie actualizată!');
-                    });
-                    return;
-                } else {
-                    // Editare Normala
+    if (editModeId) {
+        const origT = data.transactions.find(x => x.id === editModeId);
+        if (origT) {
+            const updateT = (t, updateDate = false) => {
+                if(updateDate) t.date = dateVal;
+                t.desc = desc;
+                t.amount = finalAmt;
+                t.type = type;
+                t.category = (type === 'expense') ? cat : null;
+                t.meta = (type === 'credit_payment') ? { principal, interest } : {};
+                
+                // Daca activam recurenta pe o tranzactie existenta
+                const isRec = document.getElementById('t-is-recurring').checked;
+                if (isRec && !t.seriesId) {
+                    t.seriesId = Date.now();
+                    generateFutureTransactions(t, true); // Generam restul seriei
+                }
+            };
+
+            const finishEdit = (msg) => {
+                saveData();
+                closeTransactionModal();
+                form.reset();
+                showToast(msg, 'success');
+            };
+
+            if (origT.seriesId) {
+                showRecurringEditPrompt(() => {
+                    // Doar Aceasta
                     updateT(origT, true);
                     finishEdit('Tranzacție actualizată!');
-                    return;
-                }
+                }, () => {
+                    // Aceasta si Viitoarele
+                    const futureTxs = data.transactions.filter(x => x.seriesId === origT.seriesId && x.date >= origT.date && x.id >= origT.id);
+                    futureTxs.forEach(t => updateT(t, false));
+                    finishEdit('Serie actualizată!');
+                });
+                return;
+            } else {
+                // Editare Normala
+                updateT(origT, true);
+                finishEdit('Tranzacție actualizată!');
+                return;
             }
         }
+    }
+
+    // ADAUGARE NOUA
+    const isRec = document.getElementById('t-is-recurring').checked;
+    const seriesId = isRec ? Date.now() : null;
+    
+    const t = {
+        id: Date.now(),
+        date: dateVal,
+        desc: desc,
+        amount: finalAmt,
+        type: type,
+        checked: dateVal <= new Date().toISOString().split('T')[0],
+        category: (type === 'expense') ? cat : null,
+        meta: (type === 'credit_payment') ? { principal: principal, interest: interest } : {},
+        seriesId: seriesId
+    };
+    data.transactions.push(t);
+
+    if (isRec) {
+        generateFutureTransactions(t, false);
+    }
+
+    saveData();
+    closeTransactionModal();
+    form.reset();
+    showToast('Tranzacție salvată!', 'success');
+}
+
+function generateFutureTransactions(baseT, skipFirst) {
+    const recFreq = document.getElementById('t-rec-freq').value;
+    let recCount = parseInt(document.getElementById('t-rec-count').value) || 1;
+    const startDate = new Date(baseT.date);
+
+    // Daca skipFirst e true, inseamna ca baseT e deja salvat/editat, generam doar restul
+    const startIdx = skipFirst ? 1 : 1; 
+    // Daca e tranzactie noua, baseT e prima (i=0), deci bucla de mai jos genereaza de la i=1
+    // Daca e editare si activam recurenta, baseT e prima, generam de la i=1
+
+    for(let i = startIdx; i < recCount; i++) {
+        let nextDate = new Date(startDate);
         
-        const isRec = document.getElementById('t-is-recurring').checked;
-        const recFreq = document.getElementById('t-rec-freq').value;
-        let recCount = parseInt(document.getElementById('t-rec-count').value) || 1;
-        const seriesId = isRec ? Date.now() : null;
+        if(recFreq === 'daily') nextDate.setDate(startDate.getDate() + i);
+        if(recFreq === 'weekly') nextDate.setDate(startDate.getDate() + (i * 7));
+        if(recFreq === 'monthly') nextDate.setMonth(startDate.getMonth() + i);
+        if(recFreq === 'quarterly') nextDate.setMonth(startDate.getMonth() + (i * 3));
+        if(recFreq === 'biannually') nextDate.setMonth(startDate.getMonth() + (i * 6));
+        if(recFreq === 'annually') nextDate.setFullYear(startDate.getFullYear() + i);
+
+        const dateStr = nextDate.toISOString().split('T')[0];
+        const isFuture = dateStr > new Date().toISOString().split('T')[0];
+
+        const t = { ...baseT }; // Copiem proprietatile
+        t.id = Date.now() + i;
+        t.date = dateStr;
+        t.checked = !isFuture;
+        t.desc = baseT.desc + ` (${i+1}/${recCount})`;
         
-        if(!isRec) recCount = 1;
-
-        const startDate = new Date(document.getElementById('t-date').value);
-
-        for(let i = 0; i < recCount; i++) {
-            let nextDate = new Date(startDate);
-            
-            // Calcul data viitoare
-            if (i > 0) {
-                if(recFreq === 'daily') nextDate.setDate(startDate.getDate() + i);
-                if(recFreq === 'weekly') nextDate.setDate(startDate.getDate() + (i * 7));
-                if(recFreq === 'monthly') nextDate.setMonth(startDate.getMonth() + i);
-                if(recFreq === 'quarterly') nextDate.setMonth(startDate.getMonth() + (i * 3));
-                if(recFreq === 'biannually') nextDate.setMonth(startDate.getMonth() + (i * 6));
-                if(recFreq === 'annually') nextDate.setFullYear(startDate.getFullYear() + i);
-            }
-
-            const dateStr = nextDate.toISOString().split('T')[0];
-            const isFuture = dateStr > new Date().toISOString().split('T')[0];
-
-            const t = {
-                id: Date.now() + i, // ID unic
-                date: dateStr,
-                desc: document.getElementById('t-desc').value + (isRec && i > 0 ? ` (${i+1}/${recCount})` : ''),
-                amount: finalAmt,
-                type: type,
-                checked: !isFuture, // Doar cele din trecut/prezent sunt checked automat
-                category: (type === 'expense') ? cat : null,
-                meta: (type === 'credit_payment') ? { principal: principal, interest: interest } : {},
-                seriesId: seriesId
-            };
-            data.transactions.push(t);
-        }
-
-        saveData();
-        closeTransactionModal();
-        form.reset();
-        if(isRec) {
-            showToast(`Generate ${recCount} tranzacții recurente!`, 'success');
-        } else {
-            showToast('Tranzacție salvată!', 'success');
-        }
-    });
+        data.transactions.push(t);
+    }
 }
 
 function editTransaction(id) {
@@ -692,7 +724,12 @@ function editTransaction(id) {
         document.getElementById('t-principal').value = t.meta.principal || '';
         document.getElementById('t-interest').value = t.meta.interest || '';
     }
-    resetRecurrenceForm(); // La editare nu permitem schimbarea recurentei pentru a nu duplica
+    
+    // Setam starea recurentei daca exista
+    document.getElementById('t-is-recurring').checked = !!t.seriesId;
+    toggleRecurrenceOptions();
+    // Nota: La editare, nu pre-populam frecventa/numarul din seria originala (complexitate mare),
+    // dar permitem activarea unei noi recurente daca nu avea.
     updateFormUI(); updateSelects();
 }
 function cancelEdit() { editModeId = null; if(form) form.reset(); }

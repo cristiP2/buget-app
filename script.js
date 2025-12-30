@@ -592,17 +592,11 @@ function handleTransactionSubmit() {
     const desc = document.getElementById('t-desc').value;
     const dateVal = document.getElementById('t-date').value;
     const finalAmt = ['expense','savings_in','credit_payment'].includes(type) ? -amt : amt;
-
-    // Helper pentru actualizare solduri
-    const updateBalances = (t, isRevert) => {
-        const factor = isRevert ? -1 : 1;
-        if (t.type === 'credit_payment' && t.meta && t.meta.principal) {
-            // Gasim creditul si scadem/adaugam principalul
-            // Nota: Aici ar trebui sa avem ID-ul contului de credit salvat in tranzactie.
-            // Momentan simplificam: presupunem ca userul selecteaza contul corect la editare.
-            // Pentru o implementare completa, ar trebui salvat accountId in tranzactie.
-        }
-    };
+    
+    let accountId = null;
+    if (type === 'credit_payment') accountId = document.getElementById('t-credit-account').value;
+    else if (type === 'income') accountId = document.getElementById('t-income-source').value;
+    else if (type.includes('savings')) accountId = document.getElementById('t-savings-account').value;
 
     if (editModeId) {
         const origT = data.transactions.find(x => x.id === editModeId);
@@ -661,16 +655,21 @@ function handleTransactionSubmit() {
         desc: desc,
         amount: finalAmt,
         type: type,
-        checked: dateVal <= new Date().toISOString().split('T')[0],
+        checked: !isRec && dateVal <= new Date().toISOString().split('T')[0], // Doar daca nu e recurenta viitoare
         category: (type === 'expense') ? cat : null,
         meta: (type === 'credit_payment') ? { principal: principal, interest: interest } : {},
-        seriesId: seriesId
+        seriesId: seriesId,
+        accountId: accountId
     };
     data.transactions.push(t);
 
     if (isRec) {
         generateFutureTransactions(t, false);
     }
+    
+    // Daca e tranzactie simpla si e in trecut, o marcam ca checked (platita)
+    // Daca e recurenta, prima instanta se marcheaza daca e azi sau in trecut
+    if (!isRec && t.date <= new Date().toISOString().split('T')[0]) t.checked = true;
 
     saveData();
     closeTransactionModal();
@@ -731,6 +730,12 @@ function editTransaction(id) {
     // Nota: La editare, nu pre-populam frecventa/numarul din seria originala (complexitate mare),
     // dar permitem activarea unei noi recurente daca nu avea.
     updateFormUI(); updateSelects();
+    
+    if (t.accountId) {
+        if (t.type === 'credit_payment') document.getElementById('t-credit-account').value = t.accountId;
+        else if (t.type === 'income') document.getElementById('t-income-source').value = t.accountId;
+        else if (t.type.includes('savings')) document.getElementById('t-savings-account').value = t.accountId;
+    }
 }
 function cancelEdit() { editModeId = null; if(form) form.reset(); }
 

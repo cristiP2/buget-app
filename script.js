@@ -7,7 +7,7 @@ let data = JSON.parse(localStorage.getItem('budgetApp_v3')) || {
     monthlyBudgets: {}
 };
 
-// Migrare date vechi (adauga categorii default daca nu exista)
+// Migrare date vechi
 if (!data.categories) {
     data.categories = ["Alimente", "Transport", "Utilități", "Locuință", "Distracție", "Sănătate", "Educație", "Altele"];
 }
@@ -61,7 +61,7 @@ document.addEventListener('DOMContentLoaded', () => {
         setTimeout(() => {
             loader.style.opacity = '0';
             setTimeout(() => loader.style.visibility = 'hidden', 500);
-        }, 600); // Mic delay pentru efect
+        }, 600);
     }
 
     // 9. Account Form Listener
@@ -76,7 +76,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const icon = document.querySelector('input[name="acc-icon"]:checked').value;
 
             if (id) {
-                // Edit Mode
                 let list = (type === 'income') ? data.incomeSources : (type === 'savings' ? data.savings : data.debts);
                 const item = list.find(x => x.id == id);
                 if(item) {
@@ -85,7 +84,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     if(type !== 'income') item.balance = balance;
                 }
             } else {
-                // Add Mode
                 const item = { id: Date.now(), name: name, icon: icon };
                 if(type !== 'income') item.balance = balance; else item.total = 0;
                 if(type === 'income') data.incomeSources.push(item); else if(type === 'savings') data.savings.push(item); else data.debts.push(item);
@@ -97,7 +95,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // 10. Credit Auto-Calc (Calculator Rate)
+    // 10. Credit Auto-Calc
     const tAmount = document.getElementById('t-amount');
     const tPrincipal = document.getElementById('t-principal');
     const tInterest = document.getElementById('t-interest');
@@ -112,16 +110,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const i = parseFloat(tInterest.value);
 
             if (source === 'principal' || source === 'interest') {
-                // Daca avem Principal si Dobanda => Calculam Total
                 if (!isNaN(p) && !isNaN(i)) tAmount.value = (p + i).toFixed(2);
-                // Daca avem Total si Dobanda (si modificam dobanda) => Calculam Principal
                 else if (!isNaN(a) && !isNaN(i) && source === 'interest') tPrincipal.value = (a - i).toFixed(2);
-                // Daca avem Total si Principal (si modificam principal) => Calculam Dobanda
                 else if (!isNaN(a) && !isNaN(p) && source === 'principal') tInterest.value = (a - p).toFixed(2);
             } else if (source === 'amount') {
-                // Daca modificam Totalul si avem Dobanda => Recalculam Principal
                 if (!isNaN(a) && !isNaN(i)) tPrincipal.value = (a - i).toFixed(2);
-                // Daca modificam Totalul si avem Principal => Recalculam Dobanda
                 else if (!isNaN(a) && !isNaN(p)) tInterest.value = (a - p).toFixed(2);
             }
         };
@@ -129,11 +122,21 @@ document.addEventListener('DOMContentLoaded', () => {
         tPrincipal.addEventListener('input', () => calc('principal'));
         tInterest.addEventListener('input', () => calc('interest'));
     }
+
+    // 11. Global Click for Combobox
+    document.addEventListener('click', (e) => {
+        const inputs = document.querySelectorAll('#t-category');
+        inputs.forEach(input => {
+            const dropdown = input.nextElementSibling;
+            if (dropdown && !input.contains(e.target) && !dropdown.contains(e.target)) {
+                dropdown.style.display = 'none';
+            }
+        });
+    });
 });
 
 function saveData() {
     localStorage.setItem('budgetApp_v3', JSON.stringify(data));
-    // Refresh current view
     if(document.getElementById('view-home')) updateDashboard();
     if(document.getElementById('view-transactions')) { renderTransactions(); renderCalendar(); }
     if(document.getElementById('view-accounts')) renderAllLists();
@@ -142,7 +145,7 @@ function saveData() {
 function applyMonthFilter() {
     const m = document.getElementById('month-filter').value;
     localStorage.setItem('current_month', m);
-    location.reload(); // Simplest way to refresh all data across views
+    location.reload();
 }
 
 // --- HOME PAGE LOGIC ---
@@ -151,7 +154,6 @@ function initHome() {
     setupCategoryCombobox();
     renderEvolutionChart();
     checkDailyAlerts();
-    // Setup Modal Triggers
     window.openTransactionModal = () => {
         document.getElementById('transaction-modal').style.display = 'flex';
         const d = new Date();
@@ -172,7 +174,6 @@ function checkDailyAlerts() {
     const cur = data.currency || 'RON';
 
     const today = new Date().toISOString().split('T')[0];
-    // Filtram tranzactiile de azi care nu sunt platite (unchecked) si sunt cheltuieli/rate
     const due = data.transactions.filter(t => 
         t.date === today && 
         !t.checked && 
@@ -205,7 +206,6 @@ function updateDashboard() {
     let liquid = 0, totalInc = 0, planned = 0, paid = 0, remaining = 0, totalExpenses = 0;
     const cur = data.currency || 'RON';
     
-    // Budget
     const budgetInput = document.getElementById('budget-input');
     if(budgetInput) {
         const budget = data.monthlyBudgets[m] !== undefined ? data.monthlyBudgets[m] : 0;
@@ -224,7 +224,6 @@ function updateDashboard() {
         }
     });
 
-    // Update DOM
     const setTxt = (id, val) => { const el = document.getElementById(id); if(el) el.innerText = val.toFixed(2) + ' ' + cur; };
     setTxt('dash-income', totalInc); 
     setTxt('dash-planned', planned);
@@ -236,7 +235,6 @@ function updateDashboard() {
         remEl.className = remaining >= 0 ? 'stat-value text-teal' : 'stat-value text-red';
     }
 
-    // Chart
     const ctx = document.getElementById('expenseChart');
     if(ctx) {
         let stats = { credit: 0, savings: 0 };
@@ -255,7 +253,6 @@ function updateDashboard() {
 
         const labels = [...Object.keys(expenseCats), 'Rate', 'Economii'];
         const dataValues = [...Object.values(expenseCats), stats.credit, stats.savings];
-        // Culori pentru categorii + Rate (Rosu) + Economii (Teal)
         const baseColors = ['#f59e0b', '#3b82f6', '#8b5cf6', '#ec4899', '#10b981', '#6366f1', '#f97316', '#64748b'];
         const bgColors = [...baseColors.slice(0, Object.keys(expenseCats).length), '#ef4444', '#14b8a6'];
 
@@ -296,13 +293,11 @@ function renderEvolutionChart() {
     const balances = [];
     const today = new Date();
     
-    // Calculam ultimele 12 luni
     for(let i=11; i>=0; i--) {
         const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
-        const monthKey = d.toISOString().slice(0, 7); // YYYY-MM
+        const monthKey = d.toISOString().slice(0, 7);
         months.push(monthKey);
         
-        // Calculam soldul la finalul acelei luni (toate tranzactiile checked pana la acea data)
         let bal = 0;
         data.transactions.forEach(t => {
             if(t.checked && t.date.slice(0, 7) <= monthKey) {
@@ -319,7 +314,7 @@ function renderEvolutionChart() {
             datasets: [{
                 label: 'Sold Lichid',
                 data: balances,
-                borderColor: '#00f3ff', // Neon Cyan
+                borderColor: '#00f3ff',
                 backgroundColor: 'rgba(0, 243, 255, 0.1)',
                 borderWidth: 2,
                 tension: 0.4,
@@ -349,7 +344,6 @@ function initTransactions() {
     renderTransactions();
     setupCategoryCombobox();
     renderCalendar();
-    // Setup Modal Triggers
     window.openTransactionModal = () => {
         document.getElementById('transaction-modal').style.display = 'flex';
         const d = new Date();
@@ -438,7 +432,6 @@ function renderAllLists() {
         list.forEach(item => {
             const val = type==='income' ? item.total : item.balance;
             total += val;
-            // Folosim iconita salvata sau una default daca nu exista (pentru date vechi)
             const iconClass = item.icon || (type==='income' ? 'fa-wallet' : (type==='savings' ? 'fa-piggy-bank' : 'fa-university'));
             el.innerHTML += `
                 <div class="account-item">
@@ -456,7 +449,7 @@ function renderAllLists() {
     render('list-debts', data.debts, 'debt', 'text-red');
 }
 
-// --- SHARED ACTIONS (Add/Edit/Delete) ---
+// --- SHARED ACTIONS ---
 function toggleCheck(id) {
     const t = data.transactions.find(x => x.id === id);
     if(t) { t.checked = !t.checked; saveData(); }
@@ -467,12 +460,10 @@ function deleteTransaction(id) {
 
     if (t.seriesId) {
         showRecurringDeletePrompt(() => {
-            // Sterge Doar Asta
             data.transactions = data.transactions.filter(x => x.id !== id);
             saveData();
             showToast('Tranzacție ștearsă.', 'info');
         }, () => {
-            // Sterge Aceasta si Viitoarele
             data.transactions = data.transactions.filter(x => {
                 if (x.seriesId === t.seriesId && x.date >= t.date && x.id >= t.id) return false;
                 return true;
@@ -488,9 +479,7 @@ function deleteTransaction(id) {
         });
     }
 }
-function addAccount(type) {
-    openAccountModal(type);
-}
+function addAccount(type) { openAccountModal(type); }
 function deleteAccount(type, id) {
     showConfirm('Ștergi acest cont? Datele asociate se pot pierde.', () => {
         if(type==='income') data.incomeSources = data.incomeSources.filter(x=>x.id!==id);
@@ -500,10 +489,7 @@ function deleteAccount(type, id) {
         showToast('Cont șters.', 'info');
     });
 }
-
-function editAccount(type, id) {
-    openAccountModal(type, id);
-}
+function editAccount(type, id) { openAccountModal(type, id); }
 
 function openAccountModal(type, id = null) {
     const modal = document.getElementById('account-modal');
@@ -513,7 +499,6 @@ function openAccountModal(type, id = null) {
     document.getElementById('acc-id').value = id || '';
     document.getElementById('acc-modal-title').innerText = id ? 'Editează Cont' : 'Adaugă Cont';
     
-    // Ascunde campul de sold pentru Venituri (acolo se calculeaza automat)
     const balGroup = document.getElementById('acc-balance-group');
     if(balGroup) balGroup.style.display = (type === 'income') ? 'none' : 'block';
 
@@ -523,7 +508,6 @@ function openAccountModal(type, id = null) {
         if(item) {
             document.getElementById('acc-name').value = item.name;
             document.getElementById('acc-balance').value = (type !== 'income') ? item.balance : '';
-            // Selecteaza iconita existenta
             const iconVal = item.icon || 'fa-wallet';
             const radio = document.querySelector(`input[name="acc-icon"][value="${iconVal}"]`);
             if(radio) radio.checked = true;
@@ -535,13 +519,9 @@ function openAccountModal(type, id = null) {
     }
     modal.style.display = 'flex';
 }
+function closeAccountModal() { document.getElementById('account-modal').style.display = 'none'; }
 
-function closeAccountModal() {
-    const modal = document.getElementById('account-modal');
-    if(modal) modal.style.display = 'none';
-}
-
-// --- FORM HANDLING (Modal) ---
+// --- FORM HANDLING ---
 function updateFormUI() {
     const type = document.getElementById('t-type').value;
     ['income','savings','credit','expense'].forEach(k => document.getElementById('section-'+k).style.display='none');
@@ -562,7 +542,6 @@ function resetRecurrenceForm() {
     toggleRecurrenceOptions();
 }
 
-// Populate Selects when Modal Opens
 function updateSelects() {
     const fill = (id, list) => {
         const sel = document.getElementById(id); if(!sel) return;
@@ -572,12 +551,9 @@ function updateSelects() {
     fill('t-income-source', data.incomeSources);
     fill('t-savings-account', data.savings);
     fill('t-credit-account', data.debts);
-    
-    // Actualizam si lista de categorii (datalist)
     setupCategoryCombobox();
 }
 
-// Form Submit
 const form = document.getElementById('transaction-form');
 if(form) {
     form.addEventListener('submit', (e) => {
@@ -614,11 +590,10 @@ function handleTransactionSubmit() {
                 t.accountId = accountId;
                 t.checked = updateDate ? (dateVal <= new Date().toISOString().split('T')[0]) : t.checked;
                 
-                // Daca activam recurenta pe o tranzactie existenta
                 const isRec = document.getElementById('t-is-recurring').checked;
                 if (isRec && !t.seriesId) {
                     t.seriesId = Date.now();
-                    generateFutureTransactions(t, true); // Generam restul seriei
+                    generateFutureTransactions(t, true);
                 }
             };
 
@@ -631,18 +606,15 @@ function handleTransactionSubmit() {
 
             if (origT.seriesId) {
                 showRecurringEditPrompt(() => {
-                    // Doar Aceasta
                     updateT(origT, true);
                     finishEdit('Tranzacție actualizată!');
                 }, () => {
-                    // Aceasta si Viitoarele
                     const futureTxs = data.transactions.filter(x => x.seriesId === origT.seriesId && x.date >= origT.date && x.id >= origT.id);
                     futureTxs.forEach(t => updateT(t, false));
                     finishEdit('Serie actualizată!');
                 });
                 return;
             } else {
-                // Editare Normala
                 updateT(origT, true);
                 finishEdit('Tranzacție actualizată!');
                 return;
@@ -650,7 +622,6 @@ function handleTransactionSubmit() {
         }
     }
 
-    // ADAUGARE NOUA
     const isRec = document.getElementById('t-is-recurring').checked;
     const seriesId = isRec ? Date.now() : null;
     
@@ -660,7 +631,7 @@ function handleTransactionSubmit() {
         desc: desc,
         amount: finalAmt,
         type: type,
-        checked: !isRec && dateVal <= new Date().toISOString().split('T')[0], // Doar daca nu e recurenta viitoare
+        checked: !isRec && dateVal <= new Date().toISOString().split('T')[0],
         category: (type === 'expense') ? cat : null,
         meta: (type === 'credit_payment') ? { principal: principal, interest: interest } : {},
         seriesId: seriesId,
@@ -672,8 +643,6 @@ function handleTransactionSubmit() {
         generateFutureTransactions(t, false);
     }
     
-    // Daca e tranzactie simpla si e in trecut, o marcam ca checked (platita)
-    // Daca e recurenta, prima instanta se marcheaza daca e azi sau in trecut
     if (!isRec && t.date <= new Date().toISOString().split('T')[0]) t.checked = true;
 
     saveData();
@@ -686,15 +655,10 @@ function generateFutureTransactions(baseT, skipFirst) {
     const recFreq = document.getElementById('t-rec-freq').value;
     let recCount = parseInt(document.getElementById('t-rec-count').value) || 1;
     const startDate = new Date(baseT.date);
-
-    // Daca skipFirst e true, inseamna ca baseT e deja salvat/editat, generam doar restul
     const startIdx = skipFirst ? 1 : 1; 
-    // Daca e tranzactie noua, baseT e prima (i=0), deci bucla de mai jos genereaza de la i=1
-    // Daca e editare si activam recurenta, baseT e prima, generam de la i=1
 
     for(let i = startIdx; i < recCount; i++) {
         let nextDate = new Date(startDate);
-        
         if(recFreq === 'daily') nextDate.setDate(startDate.getDate() + i);
         if(recFreq === 'weekly') nextDate.setDate(startDate.getDate() + (i * 7));
         if(recFreq === 'monthly') nextDate.setMonth(startDate.getMonth() + i);
@@ -705,7 +669,7 @@ function generateFutureTransactions(baseT, skipFirst) {
         const dateStr = nextDate.toISOString().split('T')[0];
         const isFuture = dateStr > new Date().toISOString().split('T')[0];
 
-        const t = { ...baseT }; // Copiem proprietatile
+        const t = { ...baseT };
         t.id = Date.now() + i;
         t.date = dateStr;
         t.checked = !isFuture;
@@ -729,11 +693,8 @@ function editTransaction(id) {
         document.getElementById('t-interest').value = t.meta.interest || '';
     }
     
-    // Setam starea recurentei daca exista
     document.getElementById('t-is-recurring').checked = !!t.seriesId;
     toggleRecurrenceOptions();
-    // Nota: La editare, nu pre-populam frecventa/numarul din seria originala (complexitate mare),
-    // dar permitem activarea unei noi recurente daca nu avea.
     updateFormUI(); updateSelects();
     
     if (t.accountId) {
@@ -749,15 +710,11 @@ function openDayModal(dateStr) {
     const modal = document.getElementById('day-modal');
     const list = document.getElementById('day-transactions-list');
     const title = document.getElementById('day-modal-title');
-    
     if(!modal || !list) return;
     const cur = data.currency || 'RON';
-    
     title.innerText = `Tranzacții: ${dateStr}`;
     list.innerHTML = '';
-    
     const dayTxs = data.transactions.filter(t => t.date === dateStr);
-    
     if(dayTxs.length === 0) {
         list.innerHTML = '<p class="text-muted text-center">Nicio tranzacție în această zi.</p>';
     } else {
@@ -839,7 +796,6 @@ function exportData() {
 
 function exportToExcel() {
     if(!data.transactions.length) { showToast('Nu există date de exportat.', 'warning'); return; }
-    
     const rows = data.transactions.map(t => ({
         Data: t.date,
         Descriere: t.desc,
@@ -849,7 +805,6 @@ function exportToExcel() {
         Principal: t.meta && t.meta.principal ? t.meta.principal : 0,
         Dobanda: t.meta && t.meta.interest ? t.meta.interest : 0
     }));
-
     const ws = XLSX.utils.json_to_sheet(rows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Tranzactii");
@@ -858,36 +813,28 @@ function exportToExcel() {
 
 function exportToPDF() {
     if(!data.transactions.length) { showToast('Nu există date de exportat.', 'warning'); return; }
-    
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
-    
     const rows = data.transactions.map(t => [
         t.date,
         t.desc,
         t.type === 'expense' ? 'Cheltuială' : (t.type === 'income' ? 'Venit' : 'Transfer'),
         t.amount.toFixed(2)
     ]);
-
     doc.text("Raport Tranzacții", 14, 15);
-    
     doc.autoTable({
         head: [['Data', 'Descriere', 'Tip', 'Suma']],
         body: rows,
         startY: 20
     });
-    
     doc.save('raport_tranzactii.pdf');
 }
 
-function triggerImport() {
-    document.getElementById('backup-file-input').click();
-}
+function triggerImport() { document.getElementById('backup-file-input').click(); }
 
 function importData(input) {
     const file = input.files[0];
     if (!file) return;
-    
     const reader = new FileReader();
     reader.onload = function(e) {
         try {
@@ -903,7 +850,7 @@ function importData(input) {
         }
     };
     reader.readAsText(file);
-    input.value = ''; // Reset pentru a putea selecta acelasi fisier din nou
+    input.value = '';
 }
 
 function openProfileModal() {
@@ -923,12 +870,10 @@ function saveProfile() {
     const p = document.getElementById('set-pin').value;
     const q = document.getElementById('set-sec-q').value;
     const a = document.getElementById('set-sec-a').value;
-
     if(u) localStorage.setItem('budget_app_user', u); else localStorage.removeItem('budget_app_user');
     if(p) localStorage.setItem('budget_app_pin', p); else localStorage.removeItem('budget_app_pin');
     if(q) localStorage.setItem('budget_app_sec_q', q); else localStorage.removeItem('budget_app_sec_q');
     if(a) localStorage.setItem('budget_app_sec_a', a); else localStorage.removeItem('budget_app_sec_a');
-    
     closeProfileModal();
     showToast('Profil actualizat!', 'success');
 }
@@ -936,7 +881,6 @@ function saveProfile() {
 function verifyLogin() {
     const enteredPin = document.getElementById('login-pin').value;
     const storedPin = localStorage.getItem('budget_app_pin');
-    
     if(enteredPin === storedPin) {
         document.getElementById('login-overlay').style.display = 'none';
         sessionStorage.setItem('pin_verified', 'true');
@@ -945,10 +889,7 @@ function verifyLogin() {
 
 function showRecovery() {
     const q = localStorage.getItem('budget_app_sec_q');
-    if(!q) {
-        showToast('Nu ai setat o întrebare de securitate.', 'warning');
-        return;
-    }
+    if(!q) { showToast('Nu ai setat o întrebare de securitate.', 'warning'); return; }
     document.getElementById('login-form-section').style.display = 'none';
     document.getElementById('recovery-form-section').style.display = 'block';
     document.getElementById('rec-question').innerText = q;
@@ -971,61 +912,46 @@ function verifyRecovery() {
     }
 }
 
-// --- SOUND ENGINE (SFX) ---
+// --- SOUND ENGINE ---
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-
 function playSfx(type) {
     if (audioCtx.state === 'suspended') audioCtx.resume();
     const osc = audioCtx.createOscillator();
     const gain = audioCtx.createGain();
     osc.connect(gain);
     gain.connect(audioCtx.destination);
-
     const now = audioCtx.currentTime;
-    
     if (type === 'hover') {
-        // High tech chirp
         osc.type = 'sine';
         osc.frequency.setValueAtTime(800, now);
         osc.frequency.exponentialRampToValueAtTime(1200, now + 0.05);
-        gain.gain.setValueAtTime(0.02, now); // Volum foarte mic
+        gain.gain.setValueAtTime(0.02, now);
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
-        osc.start(now);
-        osc.stop(now + 0.05);
+        osc.start(now); osc.stop(now + 0.05);
     } else if (type === 'click') {
-        // Soft confirmation beep
         osc.type = 'triangle';
         osc.frequency.setValueAtTime(400, now);
         osc.frequency.exponentialRampToValueAtTime(200, now + 0.1);
         gain.gain.setValueAtTime(0.05, now);
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
-        osc.start(now);
-        osc.stop(now + 0.1);
+        osc.start(now); osc.stop(now + 0.1);
     }
 }
-
 function initSoundEffects() {
-    // Ataseaza sunete la toate butoanele si input-urile
     document.body.addEventListener('mouseover', (e) => {
-        if(e.target.tagName === 'BUTTON' || e.target.closest('button') || e.target.tagName === 'A') {
-            playSfx('hover');
-        }
+        if(e.target.tagName === 'BUTTON' || e.target.closest('button') || e.target.tagName === 'A') playSfx('hover');
     });
     document.body.addEventListener('click', (e) => {
-        if(e.target.tagName === 'BUTTON' || e.target.closest('button') || e.target.tagName === 'A') {
-            playSfx('click');
-        }
+        if(e.target.tagName === 'BUTTON' || e.target.closest('button') || e.target.tagName === 'A') playSfx('click');
     });
 }
 
-// --- NOTIFICATIONS SYSTEM ---
+// --- NOTIFICATIONS ---
 function initNotifications() {
-    // Inject Toast Container
     const toastCont = document.createElement('div');
     toastCont.id = 'toast-container';
     document.body.appendChild(toastCont);
 
-    // Inject Confirm Modal
     const confirmModal = document.createElement('div');
     confirmModal.id = 'confirm-modal';
     confirmModal.className = 'modal-overlay';
@@ -1040,8 +966,7 @@ function initNotifications() {
                 <button class="btn-backup w-100" id="btn-confirm-no">Nu</button>
                 <button class="btn-add w-100" id="btn-confirm-yes">Da</button>
             </div>
-        </div>
-    `;
+        </div>`;
     document.body.appendChild(confirmModal);
 }
 
@@ -1053,10 +978,8 @@ function showToast(msg, type = 'info') {
     if(type==='success') icon='fa-check-circle';
     if(type==='error') icon='fa-exclamation-circle';
     if(type==='warning') icon='fa-exclamation-triangle';
-    
     toast.innerHTML = `<i class="fas ${icon}"></i> <span>${msg}</span>`;
     cont.appendChild(toast);
-    
     setTimeout(() => {
         toast.style.animation = 'fadeOut 0.5s forwards';
         setTimeout(() => toast.remove(), 500);
@@ -1067,25 +990,14 @@ function showConfirm(msg, onYes, onNo) {
     const modal = document.getElementById('confirm-modal');
     document.getElementById('confirm-msg').innerText = msg;
     modal.style.display = 'flex';
-    
     const btnYes = document.getElementById('btn-confirm-yes');
     const btnNo = document.getElementById('btn-confirm-no');
-    
-    // Clone buttons to remove old listeners
     const newYes = btnYes.cloneNode(true);
     const newNo = btnNo.cloneNode(true);
     btnYes.parentNode.replaceChild(newYes, btnYes);
     btnNo.parentNode.replaceChild(newNo, btnNo);
-    
-    newYes.addEventListener('click', () => {
-        modal.style.display = 'none';
-        if(onYes) onYes();
-    });
-    
-    newNo.addEventListener('click', () => {
-        modal.style.display = 'none';
-        if(onNo) onNo();
-    });
+    newYes.addEventListener('click', () => { modal.style.display = 'none'; if(onYes) onYes(); });
+    newNo.addEventListener('click', () => { modal.style.display = 'none'; if(onNo) onNo(); });
 }
 
 function showRecurringDeletePrompt(onOne, onSeries) {
@@ -1105,27 +1017,20 @@ function showRecurringDeletePrompt(onOne, onSeries) {
                     <button class="btn-add w-100" id="btn-del-series" style="background:var(--orange); border-color:var(--orange);">Aceasta și Viitoarele</button>
                     <button class="btn-backup w-100" id="btn-del-cancel">Anulează</button>
                 </div>
-            </div>
-        `;
+            </div>`;
         document.body.appendChild(modal);
     }
-    
     modal.style.display = 'flex';
-    
     const btnOne = document.getElementById('btn-del-one');
     const btnSeries = document.getElementById('btn-del-series');
     const btnCancel = document.getElementById('btn-del-cancel');
-    
-    // Clone to clear listeners
     const nOne = btnOne.cloneNode(true); const nSeries = btnSeries.cloneNode(true); const nCancel = btnCancel.cloneNode(true);
     btnOne.parentNode.replaceChild(nOne, btnOne); btnSeries.parentNode.replaceChild(nSeries, btnSeries); btnCancel.parentNode.replaceChild(nCancel, btnCancel);
-    
     nOne.addEventListener('click', () => { modal.style.display = 'none'; onOne(); });
     nSeries.addEventListener('click', () => { modal.style.display = 'none'; onSeries(); });
     nCancel.addEventListener('click', () => { modal.style.display = 'none'; });
 }
 
-// --- HELPERS ---
 function showRecurringEditPrompt(onOne, onSeries) {
     let modal = document.getElementById('rec-edit-modal');
     if(!modal) {
@@ -1143,21 +1048,15 @@ function showRecurringEditPrompt(onOne, onSeries) {
                     <button class="btn-add w-100" id="btn-edit-series" style="background:var(--orange); border-color:var(--orange);">Aceasta și Viitoarele</button>
                     <button class="btn-backup w-100" id="btn-edit-cancel">Anulează</button>
                 </div>
-            </div>
-        `;
+            </div>`;
         document.body.appendChild(modal);
     }
-    
     modal.style.display = 'flex';
-    
     const btnOne = document.getElementById('btn-edit-one');
     const btnSeries = document.getElementById('btn-edit-series');
     const btnCancel = document.getElementById('btn-edit-cancel');
-    
-    // Clone to clear listeners
     const nOne = btnOne.cloneNode(true); const nSeries = btnSeries.cloneNode(true); const nCancel = btnCancel.cloneNode(true);
     btnOne.parentNode.replaceChild(nOne, btnOne); btnSeries.parentNode.replaceChild(nSeries, btnSeries); btnCancel.parentNode.replaceChild(nCancel, btnCancel);
-    
     nOne.addEventListener('click', () => { modal.style.display = 'none'; onOne(); });
     nSeries.addEventListener('click', () => { modal.style.display = 'none'; onSeries(); });
     nCancel.addEventListener('click', () => { modal.style.display = 'none'; });
@@ -1168,40 +1067,28 @@ function setupCategoryCombobox() {
     inputs.forEach(input => {
         const dropdown = input.nextElementSibling;
         if (!dropdown || !dropdown.classList.contains('custom-dropdown')) return;
-
         const populate = () => {
             const val = input.value.toLowerCase();
             dropdown.innerHTML = '';
             const filtered = data.categories.filter(c => c.toLowerCase().includes(val));
-            
             if (filtered.length > 0) {
                 filtered.forEach(cat => {
                     const div = document.createElement('div');
                     div.className = 'dropdown-item';
                     div.innerText = cat;
-                    div.onclick = () => {
-                        input.value = cat;
-                        dropdown.style.display = 'none';
-                    };
+                    div.onclick = () => { input.value = cat; dropdown.style.display = 'none'; };
                     dropdown.appendChild(div);
                 });
                 dropdown.style.display = 'block';
-            } else {
-                dropdown.style.display = 'none';
-            }
+            } else { dropdown.style.display = 'none'; }
         };
-
         input.oninput = populate;
         input.onfocus = populate;
     });
-
-    // Global click to close
     document.addEventListener('click', (e) => {
         inputs.forEach(input => {
             const dropdown = input.nextElementSibling;
-            if (dropdown && !input.contains(e.target) && !dropdown.contains(e.target)) {
-                dropdown.style.display = 'none';
-            }
+            if (dropdown && !input.contains(e.target) && !dropdown.contains(e.target)) dropdown.style.display = 'none';
         });
     });
 }

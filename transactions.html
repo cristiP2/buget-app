@@ -8,9 +8,9 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body id="view-transactions">
-    <div style="display:flex; justify-content:space-between; align-items:center; max-width:1600px; margin:0 auto 20px auto; position:sticky; top:0; z-index:100; background:var(--bg); padding:10px 0; border-bottom:1px solid var(--border);">
-        <h2 style="margin:0;">Istoric</h2>
-        <input type="month" id="month-filter" onchange="applyMonthFilter()" style="padding: 5px; border: 1px solid #ccc; border-radius: 4px;">
+    <div class="header-bar">
+        <h2>Istoric</h2>
+        <input type="month" id="month-filter" onchange="applyMonthFilter()" style="width:auto;">
     </div>
 
     <div class="card">
@@ -27,16 +27,16 @@
     </div>
 
     <!-- MODAL ADAUGARE (Copiat pentru acces rapid) -->
-    <div id="transaction-modal" class="modal-overlay" onclick="if(event.target===this) closeTransactionModal()">
+    <div id="transaction-modal" class="modal-overlay" onclick="if(event.target===this) closeTransactionModal()" style="display:none;">
         <div class="modal-content">
-            <div style="display:flex; justify-content:space-between; margin-bottom:15px;"><h3>Tranzacție</h3><button onclick="closeTransactionModal()" class="btn-icon"><i class="fas fa-times"></i></button></div>
+            <div class="flex-between mb-15"><h3>Tranzacție</h3><button onclick="closeTransactionModal()" class="btn-icon"><i class="fas fa-times"></i></button></div>
             <form id="transaction-form">
                 <div class="form-row">
                     <div class="form-group"><label>Data</label><input type="date" id="t-date" required></div>
                     <div class="form-group"><label>Suma</label><input type="number" id="t-amount" step="0.01" required></div>
                 </div>
-                <div class="form-group" style="margin-bottom:15px;"><label>Descriere</label><input type="text" id="t-desc" required></div>
-                <div class="form-group" style="margin-bottom:15px;"><label>Tip</label>
+                <div class="form-group mb-15"><label>Descriere</label><input type="text" id="t-desc" required></div>
+                <div class="form-group mb-15"><label>Tip</label>
                     <select id="t-type" onchange="updateFormUI(); updateSelects();">
                         <option value="expense">Cheltuială</option>
                         <option value="income">Venit</option>
@@ -47,7 +47,7 @@
                 <div id="section-income" class="dynamic-section bg-income"><select id="t-income-source"></select></div>
                 <div id="section-savings" class="dynamic-section bg-savings"><select id="t-savings-account"></select></div>
                 <div id="section-credit" class="dynamic-section bg-credit"><select id="t-credit-account"></select></div>
-                <button type="submit" class="btn-add" style="width:100%">Salvează</button>
+                <button type="submit" class="btn-add w-100">Salvează</button>
             </form>
         </div>
     </div>

@@ -11,39 +11,39 @@
 </head>
 <body id="view-home">
     <!-- LOGIN OVERLAY -->
-    <div id="login-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:var(--bg); z-index:9999; flex-direction:column; justify-content:center; align-items:center;">
-        <div class="card" style="text-align:center;">
+    <div id="login-overlay" class="modal-overlay flex-col">
+        <div class="card text-center">
             <h2>Securitate</h2>
-            <input type="password" id="pin-input" placeholder="PIN" style="text-align:center; font-size:1.5rem; margin-bottom:15px; width:100px;">
+            <input type="password" id="pin-input" placeholder="PIN" class="mb-15" style="text-align:center; font-size:1.5rem; width:100px;">
             <br><button class="btn-add" onclick="verifyPin()">OK</button>
         </div>
     </div>
 
-    <div style="display:flex; justify-content:space-between; align-items:center; max-width:1600px; margin:0 auto 20px auto; position:sticky; top:0; z-index:100; background:var(--bg); padding:10px 0; border-bottom:1px solid var(--border);">
-        <h2 style="margin:0;">Manager Financiar</h2>
+    <div class="header-bar">
+        <h2>Manager Financiar</h2>
     </div>
 
     <div class="stats-container">
-        <div class="stat-box" id="budget-box" style="border-color: #8b5cf6;">
+        <div class="stat-box" id="budget-box">
             <small>Buget</small>
-            <div style="display:flex; align-items:center; justify-content:center; gap:5px; margin-top:5px;">
-                <input type="number" id="budget-input" onchange="updateBudgetLimit()" placeholder="Setează" style="width:90px; text-align:center; border:1px solid #ddd; border-radius:4px; padding:5px; font-weight:bold;">
+            <div class="flex-center gap-5 mt-10">
+                <input type="number" id="budget-input" onchange="updateBudgetLimit()" placeholder="Setează" class="budget-input">
             </div>
         </div>
-        <div class="stat-box" style="border-color: var(--green);"><small>Venituri</small><div class="stat-value text-green" id="dash-income">0.00 RON</div></div>
-        <div class="stat-box" style="border-color: var(--orange);"><small>Planificat</small><div class="stat-value" style="color: var(--orange)" id="dash-planned">0.00 RON</div></div>
-        <div class="stat-box" style="border-color: var(--red);"><small>Achitat</small><div class="stat-value text-red" id="dash-paid">0.00 RON</div></div>
-        <div class="stat-box" style="border-color: var(--teal);"><small>Rămas</small><div class="stat-value text-teal" id="dash-remaining">0.00 RON</div></div>
-        <div class="stat-box" style="border-color: var(--primary);"><small>SOLD LICHID</small><div class="stat-value text-blue" id="dash-balance">0.00 RON</div></div>
+        <div class="stat-box"><small>Venituri</small><div class="stat-value text-green" id="dash-income">0.00 RON</div></div>
+        <div class="stat-box"><small>Planificat</small><div class="stat-value text-orange" id="dash-planned">0.00 RON</div></div>
+        <div class="stat-box"><small>Achitat</small><div class="stat-value text-red" id="dash-paid">0.00 RON</div></div>
+        <div class="stat-box"><small>Rămas</small><div class="stat-value text-teal" id="dash-remaining">0.00 RON</div></div>
+        <div class="stat-box"><small>SOLD LICHID</small><div class="stat-value text-blue" id="dash-balance">0.00 RON</div></div>
     </div>
 
-    <div class="card" style="background: #eff6ff; border: 1px solid #bfdbfe; display:flex; justify-content:space-between; align-items:center; padding:15px;">
-        <h3 style="margin:0; border:none; padding:0; color:#1e40af;"><i class="fas fa-calendar-alt"></i> Luna</h3>
-        <input type="month" id="month-filter" onchange="applyMonthFilter()" style="padding: 8px; border: 1px solid #93c5fd; border-radius: 6px; font-weight:bold;">
+    <div class="card flex-between">
+        <h3 style="margin:0; border:none; padding:0;"><i class="fas fa-calendar-alt"></i> Luna</h3>
+        <input type="month" id="month-filter" onchange="applyMonthFilter()" style="width:auto;">
     </div>
 
-    <div style="text-align:center; margin-bottom:20px;">
-        <button class="btn-add" onclick="openTransactionModal()" style="padding: 15px 30px; font-size: 1.1rem; width:100%; max-width:400px;">
+    <div class="text-center mb-20">
+        <button class="btn-add w-100" onclick="openTransactionModal()" style="max-width:400px; font-size: 1.1rem; padding: 15px 30px;">
             <i class="fas fa-plus-circle"></i> Adaugă Tranzacție
         </button>
     </div>
@@ -54,16 +54,16 @@
     </div>
 
     <!-- MODAL ADAUGARE (Include in Home si Transactions) -->
-    <div id="transaction-modal" class="modal-overlay" onclick="if(event.target===this) closeTransactionModal()">
+    <div id="transaction-modal" class="modal-overlay" onclick="if(event.target===this) closeTransactionModal()" style="display:none;">
         <div class="modal-content">
-            <div style="display:flex; justify-content:space-between; margin-bottom:15px;"><h3>Tranzacție</h3><button onclick="closeTransactionModal()" class="btn-icon"><i class="fas fa-times"></i></button></div>
+            <div class="flex-between mb-15"><h3>Tranzacție</h3><button onclick="closeTransactionModal()" class="btn-icon"><i class="fas fa-times"></i></button></div>
             <form id="transaction-form">
                 <div class="form-row">
                     <div class="form-group"><label>Data</label><input type="date" id="t-date" required></div>
                     <div class="form-group"><label>Suma</label><input type="number" id="t-amount" step="0.01" required></div>
                 </div>
-                <div class="form-group" style="margin-bottom:15px;"><label>Descriere</label><input type="text" id="t-desc" required></div>
-                <div class="form-group" style="margin-bottom:15px;"><label>Tip</label>
+                <div class="form-group mb-15"><label>Descriere</label><input type="text" id="t-desc" required></div>
+                <div class="form-group mb-15"><label>Tip</label>
                     <select id="t-type" onchange="updateFormUI(); updateSelects();">
                         <option value="expense">Cheltuială</option>
                         <option value="income">Venit</option>
@@ -74,7 +74,7 @@
                 <div id="section-income" class="dynamic-section bg-income"><select id="t-income-source"></select></div>
                 <div id="section-savings" class="dynamic-section bg-savings"><select id="t-savings-account"></select></div>
                 <div id="section-credit" class="dynamic-section bg-credit"><select id="t-credit-account"></select></div>
-                <button type="submit" class="btn-add" style="width:100%">Salvează</button>
+                <button type="submit" class="btn-add w-100">Salvează</button>
             </form>
         </div>
     </div>

@@ -8,11 +8,11 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body id="view-settings">
-    <h2 style="margin-bottom:20px;">Setări</h2>
+    <h2 class="mb-20">Setări</h2>
 
     <div class="card">
         <h3>Date</h3>
-        <div style="display:flex; gap:10px; margin-top:15px;">
+        <div class="flex-between gap-10 mt-15">
             <button class="btn-backup" onclick="exportData()"><i class="fas fa-download"></i> Backup</button>
             <button class="btn-backup" onclick="setPin()"><i class="fas fa-key"></i> PIN</button>
         </div>
@@ -20,7 +20,7 @@
 
     <div class="card">
         <h3>Aspect</h3>
-        <button onclick="toggleTheme()" class="btn-backup" style="width:100%; margin-top:15px;">
+        <button onclick="toggleTheme()" class="btn-backup w-100 mt-15">
             <i class="fas fa-moon"></i> Schimbă Tema (Dark/Light)
         </button>
     </div>

@@ -1,7 +1,12 @@
-const CACHE_NAME = 'budget-app-v10';
+const CACHE_NAME = 'budget-app-v11';
 const ASSETS = [
     './',
     './index.html',
+    './transactions.html',
+    './accounts.html',
+    './settings.html',
+    './style.css',
+    './script.js',
     './manifest.json',
     'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css',
     'https://cdn.jsdelivr.net/npm/chart.js',

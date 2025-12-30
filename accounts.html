@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Conturi</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body id="view-accounts">
+    <h2 style="margin-bottom:20px;">Portofel</h2>
+
+    <div class="card" style="border-left: 5px solid var(--green);">
+        <h3><span class="text-green"><i class="fas fa-wallet"></i> Venituri</span> <button class="btn-small-add" onclick="addAccount('income')">+ Adaugă</button></h3>
+        <div id="list-income-sources" class="account-list"></div>
+    </div>
+
+    <div class="card" style="border-left: 5px solid var(--teal);">
+        <h3><span class="text-teal"><i class="fas fa-piggy-bank"></i> Economii</span> <button class="btn-small-add" onclick="addAccount('savings')">+ Adaugă</button></h3>
+        <div id="list-savings" class="account-list"></div>
+        <div style="text-align:right; font-weight:bold; margin-top:10px;">Total: <span id="total-savings">0.00</span></div>
+    </div>
+
+    <div class="card" style="border-left: 5px solid var(--red);">
+        <h3><span class="text-red"><i class="fas fa-university"></i> Credite</span> <button class="btn-small-add" onclick="addAccount('debt')">+ Adaugă</button></h3>
+        <div id="list-debts" class="account-list"></div>
+        <div style="text-align:right; font-weight:bold; margin-top:10px;">Total: <span id="total-debts">0.00</span></div>
+    </div>
+
+    <nav class="bottom-nav">
+        <a href="index.html" class="nav-btn"><i class="fas fa-home"></i> Acasă</a>
+        <a href="transactions.html" class="nav-btn"><i class="fas fa-list"></i> Tranzacții</a>
+        <a href="accounts.html" class="nav-btn active"><i class="fas fa-wallet"></i> Conturi</a>
+        <a href="settings.html" class="nav-btn"><i class="fas fa-cog"></i> Setări</a>
+    </nav>
+    <script src="script.js"></script>
+</body>
+</html>

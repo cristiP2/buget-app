@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Setări</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body id="view-settings">
+    <h2 style="margin-bottom:20px;">Setări</h2>
+
+    <div class="card">
+        <h3>Date</h3>
+        <div style="display:flex; gap:10px; margin-top:15px;">
+            <button class="btn-backup" onclick="exportData()"><i class="fas fa-download"></i> Backup</button>
+            <button class="btn-backup" onclick="setPin()"><i class="fas fa-key"></i> PIN</button>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3>Aspect</h3>
+        <button onclick="toggleTheme()" class="btn-backup" style="width:100%; margin-top:15px;">
+            <i class="fas fa-moon"></i> Schimbă Tema (Dark/Light)
+        </button>
+    </div>
+
+    <nav class="bottom-nav">
+        <a href="index.html" class="nav-btn"><i class="fas fa-home"></i> Acasă</a>
+        <a href="transactions.html" class="nav-btn"><i class="fas fa-list"></i> Tranzacții</a>
+        <a href="accounts.html" class="nav-btn"><i class="fas fa-wallet"></i> Conturi</a>
+        <a href="settings.html" class="nav-btn active"><i class="fas fa-cog"></i> Setări</a>
+    </nav>
+    <script src="script.js"></script>
+</body>
+</html>

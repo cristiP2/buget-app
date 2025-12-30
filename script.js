@@ -37,6 +37,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 6. Init Sounds
     initSoundEffects();
+
+    // 7. Hide Loader
+    const loader = document.getElementById('app-loader');
+    if(loader) {
+        setTimeout(() => {
+            loader.style.opacity = '0';
+            setTimeout(() => loader.style.visibility = 'hidden', 500);
+        }, 600); // Mic delay pentru efect
+    }
 });
 
 function saveData() {

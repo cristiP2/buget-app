@@ -11,6 +11,9 @@ let data = JSON.parse(localStorage.getItem('budgetApp_v3')) || {
 if (!data.categories) {
     data.categories = ["Alimente", "Transport", "Utilități", "Locuință", "Distracție", "Sănătate", "Educație", "Altele"];
 }
+if (!data.currency) {
+    data.currency = 'RON';
+}
 
 let editModeId = null;
 let myChart = null;
@@ -166,6 +169,7 @@ function checkDailyAlerts() {
     const container = document.getElementById('daily-alerts');
     if(!container) return;
     container.innerHTML = '';
+    const cur = data.currency || 'RON';
 
     const today = new Date().toISOString().split('T')[0];
     // Filtram tranzactiile de azi care nu sunt platite (unchecked) si sunt cheltuieli/rate
@@ -179,7 +183,7 @@ function checkDailyAlerts() {
         let itemsHtml = due.map(t => `
             <div class="flex-between" style="padding:10px; background:rgba(255,255,255,0.05); border-radius:8px; border:1px solid var(--border);">
                 <span style="font-weight:500;">${t.desc}</span>
-                <span class="font-bold text-red">${Math.abs(t.amount).toFixed(2)} RON</span>
+                <span class="font-bold text-red">${Math.abs(t.amount).toFixed(2)} ${cur}</span>
             </div>
         `).join('');
 
@@ -199,6 +203,7 @@ function checkDailyAlerts() {
 function updateDashboard() {
     const m = localStorage.getItem('current_month') || new Date().toISOString().slice(0, 7);
     let liquid = 0, totalInc = 0, planned = 0, paid = 0, remaining = 0, totalExpenses = 0;
+    const cur = data.currency || 'RON';
     
     // Budget
     const budgetInput = document.getElementById('budget-input');
@@ -220,13 +225,14 @@ function updateDashboard() {
     });
 
     // Update DOM
-    const setTxt = (id, val) => { const el = document.getElementById(id); if(el) el.innerText = val.toFixed(2) + ' RON'; };
-    setTxt('dash-income', totalInc); setTxt('dash-planned', planned);
+    const setTxt = (id, val) => { const el = document.getElementById(id); if(el) el.innerText = val.toFixed(2) + ' ' + cur; };
+    setTxt('dash-income', totalInc); 
+    setTxt('dash-planned', planned);
     setTxt('dash-paid', paid); setTxt('dash-balance', liquid);
     
     const remEl = document.getElementById('dash-remaining');
     if(remEl) {
-        remEl.innerText = remaining.toFixed(2) + ' RON';
+        remEl.innerText = remaining.toFixed(2) + ' ' + cur;
         remEl.className = remaining >= 0 ? 'stat-value text-teal' : 'stat-value text-red';
     }
 
@@ -361,6 +367,7 @@ function renderTransactions() {
     const list = document.getElementById('transaction-list');
     if(!list) return;
     list.innerHTML = '';
+    const cur = data.currency || 'RON';
     const m = localStorage.getItem('current_month');
     
     const searchInput = document.getElementById('search-input');
@@ -387,7 +394,7 @@ function renderTransactions() {
             <td class="check-col"><input type="checkbox" ${t.checked ? 'checked' : ''} onchange="toggleCheck(${t.id})"></td>
             <td>${t.date.slice(8)}</td>
             <td><div>${icon} ${t.desc}</div></td>
-            <td class="amount-col ${color}">${t.amount.toFixed(2)}</td>
+            <td class="amount-col ${color}">${t.amount.toFixed(2)} ${cur}</td>
             <td><button class="btn-icon" onclick="editTransaction(${t.id})"><i class="fas fa-pen"></i></button>
                 <button class="btn-icon del" onclick="deleteTransaction(${t.id})"><i class="fas fa-trash"></i></button></td>`;
         list.appendChild(tr);
@@ -423,6 +430,7 @@ function renderCalendar() {
 function initAccounts() { renderAllLists(); }
 
 function renderAllLists() {
+    const cur = data.currency || 'RON';
     const render = (id, list, type, color) => {
         const el = document.getElementById(id); if(!el) return;
         el.innerHTML = '';
@@ -434,13 +442,14 @@ function renderAllLists() {
             const iconClass = item.icon || (type==='income' ? 'fa-wallet' : (type==='savings' ? 'fa-piggy-bank' : 'fa-university'));
             el.innerHTML += `
                 <div class="account-item">
-                    <div class="account-info" style="display:flex; align-items:center; gap:12px;"><i class="fas ${iconClass} ${color}" style="font-size:1.3rem; width:25px; text-align:center;"></i><div><h4>${item.name}</h4><small>Sold: <span class="${color}">${val.toFixed(2)}</span></small></div></div>
+                    <div class="account-info" style="display:flex; align-items:center; gap:12px;"><i class="fas ${iconClass} ${color}" style="font-size:1.3rem; width:25px; text-align:center;"></i><div><h4>${item.name}</h4><small>Sold: <span class="${color}">${val.toFixed(2)} ${cur}</span></small></div></div>
                     <div class="actions"><button class="btn-icon" onclick="editAccount('${type}', ${item.id})"><i class="fas fa-pen"></i></button>
                     <button class="btn-icon del" onclick="deleteAccount('${type}', ${item.id})"><i class="fas fa-times"></i></button></div>
                 </div>`;
         });
-        const totEl = document.getElementById('total-'+(type==='savings'?'savings':'debts'));
-        if(totEl) totEl.innerText = total.toFixed(2);
+        const suffix = type === 'income' ? 'income' : (type === 'savings' ? 'savings' : 'debts');
+        const totEl = document.getElementById('total-' + suffix);
+        if(totEl) totEl.innerText = total.toFixed(2) + ' ' + cur;
     };
     render('list-income-sources', data.incomeSources, 'income', 'text-green');
     render('list-savings', data.savings, 'savings', 'text-teal');
@@ -695,6 +704,7 @@ function openDayModal(dateStr) {
     const title = document.getElementById('day-modal-title');
     
     if(!modal || !list) return;
+    const cur = data.currency || 'RON';
     
     title.innerText = `Tranzacții: ${dateStr}`;
     list.innerHTML = '';
@@ -709,7 +719,7 @@ function openDayModal(dateStr) {
             list.innerHTML += `
                 <div class="card" style="padding:10px; margin-bottom:0; display:flex; justify-content:space-between; align-items:center;">
                     <div><div class="font-bold">${t.desc}</div><small class="text-muted">${t.category || t.type}</small></div>
-                    <div class="font-bold ${color}">${t.amount.toFixed(2)}</div>
+                    <div class="font-bold ${color}">${t.amount.toFixed(2)} ${cur}</div>
                 </div>
             `;
         });
@@ -721,6 +731,18 @@ function closeDayModal() { document.getElementById('day-modal').style.display = 
 // --- SETTINGS ---
 function initSettings() {
     renderSettingsCategories();
+    const curSelect = document.getElementById('app-currency');
+    if(curSelect) {
+        curSelect.value = data.currency || 'RON';
+        curSelect.onchange = () => {
+            showConfirm(`Atenție! Această acțiune va schimba doar simbolul valutei afișat, nu va converti sumele existente. Ești sigur?`, () => {
+                data.currency = curSelect.value;
+                saveData();
+                showToast('Valută actualizată!', 'success');
+                setTimeout(() => location.reload(), 1000);
+            }, () => { curSelect.value = data.currency || 'RON'; });
+        };
+    }
 }
 
 function renderSettingsCategories() {
@@ -994,7 +1016,7 @@ function showToast(msg, type = 'info') {
     }, 3000);
 }
 
-function showConfirm(msg, onYes) {
+function showConfirm(msg, onYes, onNo) {
     const modal = document.getElementById('confirm-modal');
     document.getElementById('confirm-msg').innerText = msg;
     modal.style.display = 'flex';
@@ -1015,6 +1037,7 @@ function showConfirm(msg, onYes) {
     
     newNo.addEventListener('click', () => {
         modal.style.display = 'none';
+        if(onNo) onNo();
     });
 }
 
@@ -1056,6 +1079,43 @@ function showRecurringDeletePrompt(onOne, onSeries) {
 }
 
 // --- HELPERS ---
+function showRecurringEditPrompt(onOne, onSeries) {
+    let modal = document.getElementById('rec-edit-modal');
+    if(!modal) {
+        modal = document.createElement('div');
+        modal.id = 'rec-edit-modal';
+        modal.className = 'modal-overlay';
+        modal.style.zIndex = '10002';
+        modal.innerHTML = `
+            <div class="modal-content text-center" style="max-width:350px;">
+                <div class="mb-15"><i class="fas fa-edit" style="font-size:3rem; color:var(--primary);"></i></div>
+                <h3 class="mb-15" style="justify-content:center; border:none;">Editare Serie</h3>
+                <p class="mb-20 text-muted">Cum dorești să aplici modificarea?</p>
+                <div class="flex-col gap-10">
+                    <button class="btn-add w-100" id="btn-edit-one">Doar Aceasta</button>
+                    <button class="btn-add w-100" id="btn-edit-series" style="background:var(--orange); border-color:var(--orange);">Aceasta și Viitoarele</button>
+                    <button class="btn-backup w-100" id="btn-edit-cancel">Anulează</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+    
+    modal.style.display = 'flex';
+    
+    const btnOne = document.getElementById('btn-edit-one');
+    const btnSeries = document.getElementById('btn-edit-series');
+    const btnCancel = document.getElementById('btn-edit-cancel');
+    
+    // Clone to clear listeners
+    const nOne = btnOne.cloneNode(true); const nSeries = btnSeries.cloneNode(true); const nCancel = btnCancel.cloneNode(true);
+    btnOne.parentNode.replaceChild(nOne, btnOne); btnSeries.parentNode.replaceChild(nSeries, btnSeries); btnCancel.parentNode.replaceChild(nCancel, btnCancel);
+    
+    nOne.addEventListener('click', () => { modal.style.display = 'none'; onOne(); });
+    nSeries.addEventListener('click', () => { modal.style.display = 'none'; onSeries(); });
+    nCancel.addEventListener('click', () => { modal.style.display = 'none'; });
+}
+
 function setupCategoryCombobox() {
     const inputs = document.querySelectorAll('#t-category');
     inputs.forEach(input => {

@@ -38,21 +38,24 @@
 
     <h2 class="mb-20">Portofel</h2>
 
-    <div class="card">
-        <h3><span class="text-green"><i class="fas fa-wallet"></i> Venituri</span> <button class="btn-small-add" onclick="addAccount('income')">+ Adaugă</button></h3>
-        <div id="list-income-sources" class="account-list"></div>
-    </div>
+    <div class="accounts-grid">
+        <div class="card">
+            <h3><span class="text-green"><i class="fas fa-wallet"></i> Venituri</span> <button class="btn-small-add" onclick="addAccount('income')">+ Adaugă</button></h3>
+            <div id="list-income-sources" class="account-list"></div>
+            <div class="text-right font-bold mt-10">Total: <span id="total-income">0.00</span></div>
+        </div>
 
-    <div class="card">
-        <h3><span class="text-teal"><i class="fas fa-piggy-bank"></i> Economii</span> <button class="btn-small-add" onclick="addAccount('savings')">+ Adaugă</button></h3>
-        <div id="list-savings" class="account-list"></div>
-        <div class="text-right font-bold mt-10">Total: <span id="total-savings">0.00</span></div>
-    </div>
+        <div class="card">
+            <h3><span class="text-teal"><i class="fas fa-piggy-bank"></i> Economii</span> <button class="btn-small-add" onclick="addAccount('savings')">+ Adaugă</button></h3>
+            <div id="list-savings" class="account-list"></div>
+            <div class="text-right font-bold mt-10">Total: <span id="total-savings">0.00</span></div>
+        </div>
 
-    <div class="card">
-        <h3><span class="text-red"><i class="fas fa-university"></i> Credite</span> <button class="btn-small-add" onclick="addAccount('debt')">+ Adaugă</button></h3>
-        <div id="list-debts" class="account-list"></div>
-        <div class="text-right font-bold mt-10">Total: <span id="total-debts">0.00</span></div>
+        <div class="card">
+            <h3><span class="text-red"><i class="fas fa-university"></i> Credite</span> <button class="btn-small-add" onclick="addAccount('debt')">+ Adaugă</button></h3>
+            <div id="list-debts" class="account-list"></div>
+            <div class="text-right font-bold mt-10">Total: <span id="total-debts">0.00</span></div>
+        </div>
     </div>
 
     <!-- MODAL CONTURI (Nou) -->
@@ -78,7 +81,7 @@
                     </div>
                 </div>
                 <div class="form-group mb-15" id="acc-balance-group">
-                    <label>Sold (RON)</label>
+                    <label>Sold</label>
                     <input type="number" id="acc-balance" step="0.01">
                 </div>
                 <button type="submit" class="btn-add w-100">Salvează</button>

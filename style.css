@@ -475,3 +475,20 @@ tr:hover td { background: rgba(255,255,255,0.03); }
 }
 .dropdown-item:hover { background: var(--primary-glow); color: var(--text-bright); padding-left: 20px; }
 .dropdown-item:last-child { border-bottom: none; }
+
+/* --- ACCOUNTS GRID --- */
+.accounts-grid { display: block; }
+@media (min-width: 801px) {
+    .accounts-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 25px;
+    }
+    .accounts-grid .card { margin-bottom: 0; }
+
+    .account-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+        gap: 15px;
+    }
+}

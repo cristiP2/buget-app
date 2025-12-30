@@ -221,7 +221,6 @@
     <div style="display:flex; justify-content:space-between; align-items:center; max-width:1600px; margin:0 auto 20px auto; position:sticky; top:0; z-index:100; background:var(--bg); padding:10px 0; border-bottom:1px solid var(--border);">
         <div style="display:flex; align-items:center; gap:15px; flex-wrap:wrap;">
             <h2 style="margin:0;">Manager Financiar</h2>
-            <input type="month" id="month-filter" onchange="applyMonthFilter()" style="font-size: 0.9rem; padding: 5px 10px; border: 1px solid var(--border); border-radius: 6px; background:var(--card-bg); color:var(--text); cursor:pointer; font-weight:bold;">
         </div>
         <button onclick="toggleTheme()" class="btn-icon" style="width:auto; padding:0 15px; gap:8px; font-weight:600;">
             <i class="fas fa-moon"></i> <span id="theme-text">Dark Mode</span>
@@ -261,6 +260,12 @@
     <div class="dashboard-grid">
         
         <div class="left-col">
+            <!-- SELECTOR LUNA (Mutat aici, vizibil) -->
+            <div class="card" style="background: #eff6ff; border: 1px solid #bfdbfe; display:flex; justify-content:space-between; align-items:center; padding:15px;">
+                <h3 style="margin:0; border:none; padding:0; color:#1e40af; font-size:1.1rem;"><i class="fas fa-calendar-alt"></i> Luna de Lucru</h3>
+                <input type="month" id="month-filter" onchange="applyMonthFilter()" style="font-size: 1rem; padding: 8px; border: 1px solid #93c5fd; border-radius: 6px; background:white; color:#1e3a8a; cursor:pointer; font-weight:bold;">
+            </div>
+
             <div class="card">
                 <h3 id="form-title">Tranzacție Nouă</h3>
                 <form id="transaction-form">

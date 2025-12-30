@@ -1,5 +1,4 @@
-const CACHE_NAME = 'budget-app-v16';
-const CACHE_NAME = 'budget-app-v18';
+const CACHE_NAME = 'budget-app-v19';
 const ASSETS = [
     './',
     './index.html',
@@ -18,6 +17,7 @@ const ASSETS = [
 ];
 
 self.addEventListener('install', (e) => {
+    self.skipWaiting();
     e.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS)));
 });
 
@@ -31,6 +31,7 @@ self.addEventListener('activate', (e) => {
             }));
         })
     );
+    return self.clients.claim();
 });
 
 self.addEventListener('fetch', (e) => {

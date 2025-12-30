@@ -572,6 +572,9 @@ function updateSelects() {
     fill('t-income-source', data.incomeSources);
     fill('t-savings-account', data.savings);
     fill('t-credit-account', data.debts);
+    
+    // Actualizam si lista de categorii (datalist)
+    setupCategoryCombobox();
 }
 
 // Form Submit
@@ -608,6 +611,8 @@ function handleTransactionSubmit() {
                 t.type = type;
                 t.category = (type === 'expense') ? cat : null;
                 t.meta = (type === 'credit_payment') ? { principal, interest } : {};
+                t.accountId = accountId;
+                t.checked = updateDate ? (dateVal <= new Date().toISOString().split('T')[0]) : t.checked;
                 
                 // Daca activam recurenta pe o tranzactie existenta
                 const isRec = document.getElementById('t-is-recurring').checked;
@@ -1199,41 +1204,4 @@ function setupCategoryCombobox() {
             }
         });
     });
-}
-
-function showRecurringEditPrompt(onOne, onSeries) {
-    let modal = document.getElementById('rec-edit-modal');
-    if(!modal) {
-        modal = document.createElement('div');
-        modal.id = 'rec-edit-modal';
-        modal.className = 'modal-overlay';
-        modal.style.zIndex = '10002';
-        modal.innerHTML = `
-            <div class="modal-content text-center" style="max-width:350px;">
-                <div class="mb-15"><i class="fas fa-edit" style="font-size:3rem; color:var(--primary);"></i></div>
-                <h3 class="mb-15" style="justify-content:center; border:none;">Editare Serie</h3>
-                <p class="mb-20 text-muted">Cum dorești să aplici modificarea?</p>
-                <div class="flex-col gap-10">
-                    <button class="btn-add w-100" id="btn-edit-one">Doar Aceasta</button>
-                    <button class="btn-add w-100" id="btn-edit-series" style="background:var(--orange); border-color:var(--orange);">Aceasta și Viitoarele</button>
-                    <button class="btn-backup w-100" id="btn-edit-cancel">Anulează</button>
-                </div>
-            </div>
-        `;
-        document.body.appendChild(modal);
-    }
-    
-    modal.style.display = 'flex';
-    
-    const btnOne = document.getElementById('btn-edit-one');
-    const btnSeries = document.getElementById('btn-edit-series');
-    const btnCancel = document.getElementById('btn-edit-cancel');
-    
-    // Clone to clear listeners
-    const nOne = btnOne.cloneNode(true); const nSeries = btnSeries.cloneNode(true); const nCancel = btnCancel.cloneNode(true);
-    btnOne.parentNode.replaceChild(nOne, btnOne); btnSeries.parentNode.replaceChild(nSeries, btnSeries); btnCancel.parentNode.replaceChild(nCancel, btnCancel);
-    
-    nOne.addEventListener('click', () => { modal.style.display = 'none'; onOne(); });
-    nSeries.addEventListener('click', () => { modal.style.display = 'none'; onSeries(); });
-    nCancel.addEventListener('click', () => { modal.style.display = 'none'; });
 }

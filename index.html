@@ -473,17 +473,10 @@
         let data = JSON.parse(localStorage.getItem('budgetApp_v3')) || {
             transactions: [],
             incomeSources: [
-                { id: 1, name: "Salariu", total: 0 },
-                { id: 2, name: "Freelance", total: 0 }
+                { id: 1, name: "Salariu", total: 0 }
             ],
-            savings: [
-                { id: 1, name: "Fond Urgență", balance: 1000 },
-                { id: 2, name: "Vacanță", balance: 500 }
-            ],
-            debts: [
-                { id: 1, name: "George CC1", balance: -61626.38 },
-                { id: 2, name: "VOLT", balance: -2000.00 }
-            ]
+            savings: [],
+            debts: []
         };
         
         if(!data.monthlyBudgets) data.monthlyBudgets = {};

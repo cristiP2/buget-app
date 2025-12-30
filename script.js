@@ -107,7 +107,15 @@ function initHome() {
     updateDashboard();
     renderEvolutionChart();
     // Setup Modal Triggers
-    window.openTransactionModal = () => document.getElementById('transaction-modal').style.display = 'flex';
+    window.openTransactionModal = () => {
+        document.getElementById('transaction-modal').style.display = 'flex';
+        const d = new Date();
+        if(!editModeId) {
+            document.getElementById('t-date').value = new Date(d.getTime() - (d.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+            updateFormUI();
+            updateSelects();
+        }
+    };
     window.closeTransactionModal = () => { document.getElementById('transaction-modal').style.display = 'none'; cancelEdit(); };
 }
 
@@ -148,22 +156,51 @@ function updateDashboard() {
     // Chart
     const ctx = document.getElementById('expenseChart');
     if(ctx) {
-        let stats = { expense: 0, credit: 0, savings: 0 };
+        let stats = { credit: 0, savings: 0 };
+        let expenseCats = {};
+
         data.transactions.forEach(t => {
             if(t.date.startsWith(m)) {
-                if(t.type === 'expense') stats.expense += Math.abs(t.amount);
+                if(t.type === 'expense') {
+                    let cat = t.category || 'Altele';
+                    expenseCats[cat] = (expenseCats[cat] || 0) + Math.abs(t.amount);
+                }
                 if(t.type === 'credit_payment') stats.credit += Math.abs(t.amount);
                 if(t.type === 'savings_in') stats.savings += Math.abs(t.amount);
             }
         });
+
+        const labels = [...Object.keys(expenseCats), 'Rate', 'Economii'];
+        const dataValues = [...Object.values(expenseCats), stats.credit, stats.savings];
+        // Culori pentru categorii + Rate (Rosu) + Economii (Teal)
+        const baseColors = ['#f59e0b', '#3b82f6', '#8b5cf6', '#ec4899', '#10b981', '#6366f1', '#f97316', '#64748b'];
+        const bgColors = [...baseColors.slice(0, Object.keys(expenseCats).length), '#ef4444', '#14b8a6'];
+
         if(myChart) myChart.destroy();
         myChart = new Chart(ctx.getContext('2d'), {
             type: 'doughnut',
             data: {
-                labels: ['Cheltuieli', 'Rate', 'Economii'],
-                datasets: [{ data: [stats.expense, stats.credit, stats.savings], backgroundColor: ['#f59e0b', '#ef4444', '#14b8a6'] }]
+                labels: labels,
+                datasets: [{ 
+                    data: dataValues, 
+                    backgroundColor: bgColors,
+                    borderWidth: 0,
+                    hoverOffset: 10,
+                    borderRadius: 20,
+                    spacing: 5
+                }]
             },
-            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+            options: { 
+                responsive: true, 
+                maintainAspectRatio: false, 
+                cutout: '75%',
+                plugins: { 
+                    legend: { 
+                        position: 'bottom',
+                        labels: { usePointStyle: true, padding: 20, font: { size: 12, family: "'Segoe UI', sans-serif" } }
+                    } 
+                } 
+            }
         });
     }
 }
@@ -229,7 +266,15 @@ function initTransactions() {
     renderTransactions();
     renderCalendar();
     // Setup Modal Triggers
-    window.openTransactionModal = () => document.getElementById('transaction-modal').style.display = 'flex';
+    window.openTransactionModal = () => {
+        document.getElementById('transaction-modal').style.display = 'flex';
+        const d = new Date();
+        if(!editModeId) {
+            document.getElementById('t-date').value = new Date(d.getTime() - (d.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+            updateFormUI();
+            updateSelects();
+        }
+    };
     window.closeTransactionModal = () => { document.getElementById('transaction-modal').style.display = 'none'; cancelEdit(); };
 }
 
@@ -283,6 +328,7 @@ function renderCalendar() {
         const el = document.createElement('div'); el.className = 'calendar-day';
         el.innerHTML = `<span class="day-number">${i}</span><div class="dots">${dots}</div>`;
         calView.appendChild(el);
+        el.onclick = () => openDayModal(dateStr);
     }
 }
 
@@ -382,7 +428,9 @@ function closeAccountModal() {
 // --- FORM HANDLING (Modal) ---
 function updateFormUI() {
     const type = document.getElementById('t-type').value;
-    ['income','savings','credit'].forEach(k => document.getElementById('section-'+k).style.display='none');
+    ['income','savings','credit','expense'].forEach(k => document.getElementById('section-'+k).style.display='none');
+    
+    if(type==='expense') document.getElementById('section-expense').style.display='block';
     if(type==='income') document.getElementById('section-income').style.display='block';
     if(type.includes('savings')) document.getElementById('section-savings').style.display='block';
     if(type==='credit_payment') document.getElementById('section-credit').style.display='block';
@@ -411,6 +459,9 @@ if(form) {
         
         const type = document.getElementById('t-type').value;
         const amt = parseFloat(document.getElementById('t-amount').value);
+        const cat = document.getElementById('t-category').value;
+        const principal = parseFloat(document.getElementById('t-principal').value) || 0;
+        const interest = parseFloat(document.getElementById('t-interest').value) || 0;
         const finalAmt = ['expense','savings_in','credit_payment'].includes(type) ? -amt : amt;
         
         const t = {
@@ -420,7 +471,8 @@ if(form) {
             amount: finalAmt,
             type: type,
             checked: document.getElementById('t-date').value <= new Date().toISOString().split('T')[0],
-            meta: {} // Simplified for brevity
+            category: (type === 'expense') ? cat : null,
+            meta: (type === 'credit_payment') ? { principal: principal, interest: interest } : {}
         };
         data.transactions.push(t);
         saveData();
@@ -438,9 +490,44 @@ function editTransaction(id) {
     document.getElementById('t-desc').value = t.desc;
     document.getElementById('t-amount').value = Math.abs(t.amount);
     document.getElementById('t-type').value = t.type;
+    if(t.category) document.getElementById('t-category').value = t.category;
+    if(t.meta && t.type === 'credit_payment') {
+        document.getElementById('t-principal').value = t.meta.principal || '';
+        document.getElementById('t-interest').value = t.meta.interest || '';
+    }
     updateFormUI(); updateSelects();
 }
 function cancelEdit() { editModeId = null; if(form) form.reset(); }
+
+// --- DAY MODAL ---
+function openDayModal(dateStr) {
+    const modal = document.getElementById('day-modal');
+    const list = document.getElementById('day-transactions-list');
+    const title = document.getElementById('day-modal-title');
+    
+    if(!modal || !list) return;
+    
+    title.innerText = `Tranzacții: ${dateStr}`;
+    list.innerHTML = '';
+    
+    const dayTxs = data.transactions.filter(t => t.date === dateStr);
+    
+    if(dayTxs.length === 0) {
+        list.innerHTML = '<p class="text-muted text-center">Nicio tranzacție în această zi.</p>';
+    } else {
+        dayTxs.forEach(t => {
+            let color = t.type === 'income' ? 'text-green' : 'text-red';
+            list.innerHTML += `
+                <div class="card" style="padding:10px; margin-bottom:0; display:flex; justify-content:space-between; align-items:center;">
+                    <div><div class="font-bold">${t.desc}</div><small class="text-muted">${t.category || t.type}</small></div>
+                    <div class="font-bold ${color}">${t.amount.toFixed(2)}</div>
+                </div>
+            `;
+        });
+    }
+    modal.style.display = 'flex';
+}
+function closeDayModal() { document.getElementById('day-modal').style.display = 'none'; }
 
 // --- SETTINGS ---
 function toggleTheme() {
@@ -450,6 +537,49 @@ function toggleTheme() {
 function exportData() {
     const a = document.createElement('a'); a.href = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(data));
     a.download = "backup.json"; document.body.appendChild(a); a.click(); a.remove();
+}
+
+function exportToExcel() {
+    if(!data.transactions.length) { showToast('Nu există date de exportat.', 'warning'); return; }
+    
+    const rows = data.transactions.map(t => ({
+        Data: t.date,
+        Descriere: t.desc,
+        Tip: t.type === 'expense' ? 'Cheltuială' : (t.type === 'income' ? 'Venit' : 'Transfer'),
+        Categorie: t.category || '-',
+        Suma: t.amount,
+        Principal: t.meta && t.meta.principal ? t.meta.principal : 0,
+        Dobanda: t.meta && t.meta.interest ? t.meta.interest : 0
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Tranzactii");
+    XLSX.writeFile(wb, "Buget_Export.xlsx");
+}
+
+function exportToPDF() {
+    if(!data.transactions.length) { showToast('Nu există date de exportat.', 'warning'); return; }
+    
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    
+    const rows = data.transactions.map(t => [
+        t.date,
+        t.desc,
+        t.type === 'expense' ? 'Cheltuială' : (t.type === 'income' ? 'Venit' : 'Transfer'),
+        t.amount.toFixed(2)
+    ]);
+
+    doc.text("Raport Tranzacții", 14, 15);
+    
+    doc.autoTable({
+        head: [['Data', 'Descriere', 'Tip', 'Suma']],
+        body: rows,
+        startY: 20
+    });
+    
+    doc.save('raport_tranzactii.pdf');
 }
 
 function triggerImport() {

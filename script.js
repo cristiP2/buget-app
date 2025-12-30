@@ -14,7 +14,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // 1. Check PIN
     if(localStorage.getItem('budget_app_pin') && !sessionStorage.getItem('pin_verified')) {
         const overlay = document.getElementById('login-overlay');
-        if(overlay) overlay.style.display = 'flex';
+        if(overlay) {
+            overlay.style.display = 'flex';
+            const savedUser = localStorage.getItem('budget_app_user');
+            if(savedUser) document.getElementById('login-greeting').innerText = `Salut, ${savedUser}!`;
+        }
     }
 
     // 2. Theme
@@ -46,6 +50,38 @@ document.addEventListener('DOMContentLoaded', () => {
             setTimeout(() => loader.style.visibility = 'hidden', 500);
         }, 600); // Mic delay pentru efect
     }
+
+    // 8. Account Form Listener
+    const accForm = document.getElementById('account-form');
+    if(accForm) {
+        accForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const id = document.getElementById('acc-id').value;
+            const type = document.getElementById('acc-type').value;
+            const name = document.getElementById('acc-name').value;
+            const balance = parseFloat(document.getElementById('acc-balance').value) || 0;
+            const icon = document.querySelector('input[name="acc-icon"]:checked').value;
+
+            if (id) {
+                // Edit Mode
+                let list = (type === 'income') ? data.incomeSources : (type === 'savings' ? data.savings : data.debts);
+                const item = list.find(x => x.id == id);
+                if(item) {
+                    item.name = name;
+                    item.icon = icon;
+                    if(type !== 'income') item.balance = balance;
+                }
+            } else {
+                // Add Mode
+                const item = { id: Date.now(), name: name, icon: icon };
+                if(type !== 'income') item.balance = balance; else item.total = 0;
+                if(type === 'income') data.incomeSources.push(item); else if(type === 'savings') data.savings.push(item); else data.debts.push(item);
+            }
+            saveData();
+            closeAccountModal();
+            accForm.reset();
+        });
+    }
 });
 
 function saveData() {
@@ -65,6 +101,7 @@ function applyMonthFilter() {
 // --- HOME PAGE LOGIC ---
 function initHome() {
     updateDashboard();
+    renderEvolutionChart();
     // Setup Modal Triggers
     window.openTransactionModal = () => document.getElementById('transaction-modal').style.display = 'flex';
     window.closeTransactionModal = () => { document.getElementById('transaction-modal').style.display = 'none'; cancelEdit(); };
@@ -125,6 +162,55 @@ function updateDashboard() {
             options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
         });
     }
+}
+
+function renderEvolutionChart() {
+    const ctx = document.getElementById('evolutionChart');
+    if(!ctx) return;
+
+    const months = [];
+    const balances = [];
+    const today = new Date();
+    
+    // Calculam ultimele 12 luni
+    for(let i=11; i>=0; i--) {
+        const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+        const monthKey = d.toISOString().slice(0, 7); // YYYY-MM
+        months.push(monthKey);
+        
+        // Calculam soldul la finalul acelei luni (toate tranzactiile checked pana la acea data)
+        let bal = 0;
+        data.transactions.forEach(t => {
+            if(t.checked && t.date.slice(0, 7) <= monthKey) {
+                bal += t.amount;
+            }
+        });
+        balances.push(bal);
+    }
+
+    new Chart(ctx.getContext('2d'), {
+        type: 'line',
+        data: {
+            labels: months,
+            datasets: [{
+                label: 'Sold Lichid',
+                data: balances,
+                borderColor: '#00f3ff', // Neon Cyan
+                backgroundColor: 'rgba(0, 243, 255, 0.1)',
+                borderWidth: 2,
+                tension: 0.4,
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false }, tooltip: { mode: 'index', intersect: false } },
+            scales: {
+                y: { grid: { color: 'rgba(255,255,255,0.1)' }, ticks: { color: '#9ca3af' } },
+                x: { grid: { display: false }, ticks: { color: '#9ca3af' } }
+            }
+        }
+    });
 }
 
 function updateBudgetLimit() {
@@ -207,9 +293,11 @@ function renderAllLists() {
         list.forEach(item => {
             const val = type==='income' ? item.total : item.balance;
             total += val;
+            // Folosim iconita salvata sau una default daca nu exista (pentru date vechi)
+            const iconClass = item.icon || (type==='income' ? 'fa-wallet' : (type==='savings' ? 'fa-piggy-bank' : 'fa-university'));
             el.innerHTML += `
                 <div class="account-item">
-                    <div class="account-info"><h4>${item.name}</h4><small>Sold: <span class="${color}">${val.toFixed(2)}</span></small></div>
+                    <div class="account-info" style="display:flex; align-items:center; gap:12px;"><i class="fas ${iconClass} ${color}" style="font-size:1.3rem; width:25px; text-align:center;"></i><div><h4>${item.name}</h4><small>Sold: <span class="${color}">${val.toFixed(2)}</span></small></div></div>
                     <div class="actions"><button class="btn-icon" onclick="editAccount('${type}', ${item.id})"><i class="fas fa-pen"></i></button>
                     <button class="btn-icon del" onclick="deleteAccount('${type}', ${item.id})"><i class="fas fa-times"></i></button></div>
                 </div>`;
@@ -231,13 +319,7 @@ function deleteTransaction(id) {
     if(confirm('Ștergi?')) { data.transactions = data.transactions.filter(x => x.id !== id); saveData(); }
 }
 function addAccount(type) {
-    const n = prompt('Nume:'); if(!n) return;
-    const item = { id: Date.now(), name: n };
-    if(type!=='income') item.balance = parseFloat(prompt('Sold:')||0); else item.total = 0;
-    if(type==='income') data.incomeSources.push(item);
-    else if(type==='savings') data.savings.push(item);
-    else data.debts.push(item);
-    saveData();
+    openAccountModal(type);
 }
 function deleteAccount(type, id) {
     if(!confirm('Ștergi?')) return;
@@ -245,6 +327,46 @@ function deleteAccount(type, id) {
     else if(type==='savings') data.savings = data.savings.filter(x=>x.id!==id);
     else data.debts = data.debts.filter(x=>x.id!==id);
     saveData();
+}
+
+function editAccount(type, id) {
+    openAccountModal(type, id);
+}
+
+function openAccountModal(type, id = null) {
+    const modal = document.getElementById('account-modal');
+    if(!modal) return;
+    
+    document.getElementById('acc-type').value = type;
+    document.getElementById('acc-id').value = id || '';
+    document.getElementById('acc-modal-title').innerText = id ? 'Editează Cont' : 'Adaugă Cont';
+    
+    // Ascunde campul de sold pentru Venituri (acolo se calculeaza automat)
+    const balGroup = document.getElementById('acc-balance-group');
+    if(balGroup) balGroup.style.display = (type === 'income') ? 'none' : 'block';
+
+    if (id) {
+        let list = (type === 'income') ? data.incomeSources : (type === 'savings' ? data.savings : data.debts);
+        const item = list.find(x => x.id == id);
+        if(item) {
+            document.getElementById('acc-name').value = item.name;
+            document.getElementById('acc-balance').value = (type !== 'income') ? item.balance : '';
+            // Selecteaza iconita existenta
+            const iconVal = item.icon || 'fa-wallet';
+            const radio = document.querySelector(`input[name="acc-icon"][value="${iconVal}"]`);
+            if(radio) radio.checked = true;
+        }
+    } else {
+        document.getElementById('acc-name').value = '';
+        document.getElementById('acc-balance').value = '';
+        document.querySelector('input[name="acc-icon"][value="fa-wallet"]').checked = true;
+    }
+    modal.style.display = 'flex';
+}
+
+function closeAccountModal() {
+    const modal = document.getElementById('account-modal');
+    if(modal) modal.style.display = 'none';
 }
 
 // --- FORM HANDLING (Modal) ---
@@ -316,12 +438,31 @@ function exportData() {
     const a = document.createElement('a'); a.href = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(data));
     a.download = "backup.json"; document.body.appendChild(a); a.click(); a.remove();
 }
-function setPin() {
-    const p = prompt("PIN Nou:");
-    if(p) localStorage.setItem('budget_app_pin', p); else localStorage.removeItem('budget_app_pin');
+
+function openProfileModal() {
+    const modal = document.getElementById('profile-modal');
+    if(modal) {
+        document.getElementById('set-user').value = localStorage.getItem('budget_app_user') || '';
+        document.getElementById('set-pin').value = localStorage.getItem('budget_app_pin') || '';
+        modal.style.display = 'flex';
+    }
 }
-function verifyPin() {
-    if(document.getElementById('pin-input').value === localStorage.getItem('budget_app_pin')) {
+function closeProfileModal() { document.getElementById('profile-modal').style.display = 'none'; }
+
+function saveProfile() {
+    const u = document.getElementById('set-user').value;
+    const p = document.getElementById('set-pin').value;
+    if(u) localStorage.setItem('budget_app_user', u); else localStorage.removeItem('budget_app_user');
+    if(p) localStorage.setItem('budget_app_pin', p); else localStorage.removeItem('budget_app_pin');
+    closeProfileModal();
+    alert('Profil actualizat!');
+}
+
+function verifyLogin() {
+    const enteredPin = document.getElementById('login-pin').value;
+    const storedPin = localStorage.getItem('budget_app_pin');
+    
+    if(enteredPin === storedPin) {
         document.getElementById('login-overlay').style.display = 'none';
         sessionStorage.setItem('pin_verified', 'true');
     } else alert('PIN Incorect');

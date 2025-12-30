@@ -32,6 +32,37 @@
         <div class="text-right font-bold mt-10">Total: <span id="total-debts">0.00</span></div>
     </div>
 
+    <!-- MODAL CONTURI (Nou) -->
+    <div id="account-modal" class="modal-overlay" onclick="if(event.target===this) closeAccountModal()" style="display:none;">
+        <div class="modal-content">
+            <div class="flex-between mb-15"><h3 id="acc-modal-title">Cont</h3><button onclick="closeAccountModal()" class="btn-icon"><i class="fas fa-times"></i></button></div>
+            <form id="account-form">
+                <input type="hidden" id="acc-id">
+                <input type="hidden" id="acc-type">
+                <div class="form-group mb-15">
+                    <label>Nume</label>
+                    <input type="text" id="acc-name" required>
+                </div>
+                <div class="form-group mb-15">
+                    <label>Iconiță</label>
+                    <div class="icon-selector">
+                        <label><input type="radio" name="acc-icon" value="fa-wallet" checked><i class="fas fa-wallet"></i></label>
+                        <label><input type="radio" name="acc-icon" value="fa-credit-card"><i class="fas fa-credit-card"></i></label>
+                        <label><input type="radio" name="acc-icon" value="fa-money-bill-wave"><i class="fas fa-money-bill-wave"></i></label>
+                        <label><input type="radio" name="acc-icon" value="fa-university"><i class="fas fa-university"></i></label>
+                        <label><input type="radio" name="acc-icon" value="fa-piggy-bank"><i class="fas fa-piggy-bank"></i></label>
+                        <label><input type="radio" name="acc-icon" value="fa-mobile-alt"><i class="fas fa-mobile-alt"></i></label>
+                    </div>
+                </div>
+                <div class="form-group mb-15" id="acc-balance-group">
+                    <label>Sold (RON)</label>
+                    <input type="number" id="acc-balance" step="0.01">
+                </div>
+                <button type="submit" class="btn-add w-100">Salvează</button>
+            </form>
+        </div>
+    </div>
+
     <nav class="bottom-nav">
         <a href="index.html" class="nav-btn"><i class="fas fa-home"></i> Acasă</a>
         <a href="transactions.html" class="nav-btn"><i class="fas fa-list"></i> Tranzacții</a>

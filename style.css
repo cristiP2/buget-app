@@ -458,3 +458,20 @@ tr:hover td { background: rgba(255,255,255,0.03); }
 
 @keyframes slideInRight { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 @keyframes fadeOut { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-20px); } }
+
+/* --- CUSTOM COMBOBOX --- */
+.combobox-container { position: relative; }
+.custom-dropdown {
+    position: absolute; top: 100%; left: 0; width: 100%;
+    background: var(--card-bg); border: 1px solid var(--border);
+    border-radius: 0 0 12px 12px; max-height: 200px; overflow-y: auto;
+    z-index: 1000; display: none; box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    margin-top: 5px;
+}
+.dropdown-item {
+    padding: 12px 15px; cursor: pointer; color: var(--text);
+    border-bottom: 1px solid rgba(255,255,255,0.05); transition: all 0.2s;
+}
+.dropdown-item:hover { background: var(--primary-glow); color: var(--text-bright); padding-left: 20px; }
+.dropdown-item:last-child { border-bottom: none; }

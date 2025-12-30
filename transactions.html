@@ -57,6 +57,9 @@
                 <button class="btn-small-add" onclick="openTransactionModal()">+ Adaugă</button>
             </div>
         </h3>
+        <div class="mb-15">
+            <input type="text" id="search-input" placeholder="Caută după descriere, sumă sau categorie..." onkeyup="renderTransactions()">
+        </div>
         <table>
             <thead><tr><th class="check-col"></th><th>Data</th><th>Descriere</th><th class="amount-col">Suma</th><th></th></tr></thead>
             <tbody id="transaction-list"></tbody>
@@ -84,16 +87,10 @@
 
                 <div id="section-expense" class="dynamic-section mb-15" style="display:none;">
                     <label>Categorie</label>
-                    <select id="t-category">
-                        <option value="Alimente">Alimente</option>
-                        <option value="Transport">Transport</option>
-                        <option value="Utilități">Utilități</option>
-                        <option value="Locuință">Locuință</option>
-                        <option value="Distracție">Distracție</option>
-                        <option value="Sănătate">Sănătate</option>
-                        <option value="Educație">Educație</option>
-                        <option value="Altele">Altele</option>
-                    </select>
+                    <div class="combobox-container">
+                        <input type="text" id="t-category" placeholder="Caută sau selectează..." autocomplete="off">
+                        <div id="category-dropdown" class="custom-dropdown"></div>
+                    </div>
                 </div>
 
                 <div id="section-income" class="dynamic-section bg-income mb-15"><select id="t-income-source"></select></div>
@@ -101,6 +98,28 @@
                 <div id="section-credit" class="dynamic-section bg-credit mb-15">
                     <div class="form-group mb-15"><label>Credit</label><select id="t-credit-account"></select></div>
                     <div class="form-row"><div class="form-group"><label>Principal</label><input type="number" id="t-principal" step="0.01"></div><div class="form-group"><label>Dobândă</label><input type="number" id="t-interest" step="0.01"></div></div>
+                </div>
+
+                <div class="form-group mb-15">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <input type="checkbox" id="t-is-recurring" style="width:auto;" onchange="toggleRecurrenceOptions()">
+                        <label for="t-is-recurring" style="margin:0; cursor:pointer;">Tranzacție Recurentă</label>
+                    </div>
+                </div>
+
+                <div id="section-recurrence" class="dynamic-section mb-15" style="display:none; border: 1px solid var(--border);">
+                    <div class="form-group mb-15">
+                        <label>Frecvență</label>
+                        <select id="t-rec-freq">
+                            <option value="daily">Zilnic</option>
+                            <option value="weekly">Săptămânal</option>
+                            <option value="monthly" selected>Lunar</option>
+                            <option value="quarterly">Trimestrial</option>
+                            <option value="biannually">Semestrial</option>
+                            <option value="annually">Anual</option>
+                        </select>
+                    </div>
+                    <div class="form-group"><label>Număr de repetiții</label><input type="number" id="t-rec-count" value="12" min="2" placeholder="Ex: 12"></div>
                 </div>
 
                 <button type="submit" class="btn-add w-100">Salvează</button>

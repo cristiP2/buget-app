@@ -46,7 +46,6 @@
         <h3>Date</h3>
         <div class="flex-between gap-10 mt-15">
             <button class="btn-backup" onclick="exportData()"><i class="fas fa-file-code"></i> Backup</button>
-            <button class="btn-backup" onclick="exportToExcel()"><i class="fas fa-file-excel"></i> Excel</button>
             <button class="btn-backup" onclick="triggerImport()"><i class="fas fa-upload"></i> Import</button>
         </div>
         <button class="btn-backup w-100 mt-15" onclick="openProfileModal()"><i class="fas fa-user-shield"></i> Profil & PIN</button>
@@ -58,6 +57,15 @@
         <button onclick="toggleTheme()" class="btn-backup w-100 mt-15">
             <i class="fas fa-moon"></i> Schimbă Tema (Dark/Light)
         </button>
+    </div>
+
+    <div class="card">
+        <h3>Categorii de Cheltuieli</h3>
+        <div class="flex-between gap-10 mb-15 mt-15">
+            <input type="text" id="new-cat-name" placeholder="Categorie nouă...">
+            <button class="btn-small-add" onclick="addNewCategory()">Adaugă</button>
+        </div>
+        <div id="categories-list" class="flex-col gap-15"></div>
     </div>
 
     <!-- MODAL PROFIL -->

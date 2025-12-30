@@ -6,6 +6,12 @@ let data = JSON.parse(localStorage.getItem('budgetApp_v3')) || {
     debts: [],
     monthlyBudgets: {}
 };
+
+// Migrare date vechi (adauga categorii default daca nu exista)
+if (!data.categories) {
+    data.categories = ["Alimente", "Transport", "Utilități", "Locuință", "Distracție", "Sănătate", "Educație", "Altele"];
+}
+
 let editModeId = null;
 let myChart = null;
 
@@ -35,6 +41,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if(document.getElementById('view-home')) initHome();
     if(document.getElementById('view-transactions')) initTransactions();
     if(document.getElementById('view-accounts')) initAccounts();
+    if(document.getElementById('view-settings')) initSettings();
     
     // 5. Service Worker
     if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js');
@@ -86,6 +93,39 @@ document.addEventListener('DOMContentLoaded', () => {
             showToast('Cont salvat cu succes!', 'success');
         });
     }
+
+    // 10. Credit Auto-Calc (Calculator Rate)
+    const tAmount = document.getElementById('t-amount');
+    const tPrincipal = document.getElementById('t-principal');
+    const tInterest = document.getElementById('t-interest');
+
+    if(tAmount && tPrincipal && tInterest) {
+        const calc = (source) => {
+            const type = document.getElementById('t-type').value;
+            if(type !== 'credit_payment') return;
+
+            const a = parseFloat(tAmount.value);
+            const p = parseFloat(tPrincipal.value);
+            const i = parseFloat(tInterest.value);
+
+            if (source === 'principal' || source === 'interest') {
+                // Daca avem Principal si Dobanda => Calculam Total
+                if (!isNaN(p) && !isNaN(i)) tAmount.value = (p + i).toFixed(2);
+                // Daca avem Total si Dobanda (si modificam dobanda) => Calculam Principal
+                else if (!isNaN(a) && !isNaN(i) && source === 'interest') tPrincipal.value = (a - i).toFixed(2);
+                // Daca avem Total si Principal (si modificam principal) => Calculam Dobanda
+                else if (!isNaN(a) && !isNaN(p) && source === 'principal') tInterest.value = (a - p).toFixed(2);
+            } else if (source === 'amount') {
+                // Daca modificam Totalul si avem Dobanda => Recalculam Principal
+                if (!isNaN(a) && !isNaN(i)) tPrincipal.value = (a - i).toFixed(2);
+                // Daca modificam Totalul si avem Principal => Recalculam Dobanda
+                else if (!isNaN(a) && !isNaN(p)) tInterest.value = (a - p).toFixed(2);
+            }
+        };
+        tAmount.addEventListener('input', () => calc('amount'));
+        tPrincipal.addEventListener('input', () => calc('principal'));
+        tInterest.addEventListener('input', () => calc('interest'));
+    }
 });
 
 function saveData() {
@@ -105,7 +145,9 @@ function applyMonthFilter() {
 // --- HOME PAGE LOGIC ---
 function initHome() {
     updateDashboard();
+    setupCategoryCombobox();
     renderEvolutionChart();
+    checkDailyAlerts();
     // Setup Modal Triggers
     window.openTransactionModal = () => {
         document.getElementById('transaction-modal').style.display = 'flex';
@@ -114,9 +156,44 @@ function initHome() {
             document.getElementById('t-date').value = new Date(d.getTime() - (d.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
             updateFormUI();
             updateSelects();
+            resetRecurrenceForm();
         }
     };
     window.closeTransactionModal = () => { document.getElementById('transaction-modal').style.display = 'none'; cancelEdit(); };
+}
+
+function checkDailyAlerts() {
+    const container = document.getElementById('daily-alerts');
+    if(!container) return;
+    container.innerHTML = '';
+
+    const today = new Date().toISOString().split('T')[0];
+    // Filtram tranzactiile de azi care nu sunt platite (unchecked) si sunt cheltuieli/rate
+    const due = data.transactions.filter(t => 
+        t.date === today && 
+        !t.checked && 
+        ['expense', 'credit_payment', 'savings_in'].includes(t.type)
+    );
+
+    if(due.length > 0) {
+        let itemsHtml = due.map(t => `
+            <div class="flex-between" style="padding:10px; background:rgba(255,255,255,0.05); border-radius:8px; border:1px solid var(--border);">
+                <span style="font-weight:500;">${t.desc}</span>
+                <span class="font-bold text-red">${Math.abs(t.amount).toFixed(2)} RON</span>
+            </div>
+        `).join('');
+
+        container.innerHTML = `
+            <div class="card" style="border-left: 4px solid var(--orange);">
+                <h3 style="border:none; padding:0; margin-bottom:15px; color: var(--orange);">
+                    <span><i class="fas fa-bell"></i> De plată astăzi (${due.length})</span>
+                </h3>
+                <div class="flex-col gap-10">
+                    ${itemsHtml}
+                </div>
+            </div>
+        `;
+    }
 }
 
 function updateDashboard() {
@@ -264,6 +341,7 @@ function updateBudgetLimit() {
 // --- TRANSACTIONS PAGE LOGIC ---
 function initTransactions() {
     renderTransactions();
+    setupCategoryCombobox();
     renderCalendar();
     // Setup Modal Triggers
     window.openTransactionModal = () => {
@@ -273,6 +351,7 @@ function initTransactions() {
             document.getElementById('t-date').value = new Date(d.getTime() - (d.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
             updateFormUI();
             updateSelects();
+            resetRecurrenceForm();
         }
     };
     window.closeTransactionModal = () => { document.getElementById('transaction-modal').style.display = 'none'; cancelEdit(); };
@@ -283,7 +362,15 @@ function renderTransactions() {
     if(!list) return;
     list.innerHTML = '';
     const m = localStorage.getItem('current_month');
-    const filtered = data.transactions.filter(t => t.date.startsWith(m)).sort((a,b) => new Date(a.date) - new Date(b.date));
+    
+    const searchInput = document.getElementById('search-input');
+    const query = searchInput ? searchInput.value.toLowerCase() : '';
+
+    const filtered = data.transactions.filter(t => {
+        const inMonth = t.date.startsWith(m);
+        const matches = !query || t.desc.toLowerCase().includes(query) || t.amount.toString().includes(query) || (t.category && t.category.toLowerCase().includes(query));
+        return inMonth && matches;
+    }).sort((a,b) => new Date(a.date) - new Date(b.date));
     
     filtered.forEach(t => {
         const tr = document.createElement('tr');
@@ -366,11 +453,31 @@ function toggleCheck(id) {
     if(t) { t.checked = !t.checked; saveData(); }
 }
 function deleteTransaction(id) {
-    showConfirm('Ești sigur că vrei să ștergi această tranzacție?', () => {
-        data.transactions = data.transactions.filter(x => x.id !== id);
-        saveData();
-        showToast('Tranzacție ștearsă.', 'info');
-    });
+    const t = data.transactions.find(x => x.id === id);
+    if(!t) return;
+
+    if (t.seriesId) {
+        showRecurringDeletePrompt(() => {
+            // Sterge Doar Asta
+            data.transactions = data.transactions.filter(x => x.id !== id);
+            saveData();
+            showToast('Tranzacție ștearsă.', 'info');
+        }, () => {
+            // Sterge Aceasta si Viitoarele
+            data.transactions = data.transactions.filter(x => {
+                if (x.seriesId === t.seriesId && x.date >= t.date && x.id >= t.id) return false;
+                return true;
+            });
+            saveData();
+            showToast('Serie ștearsă (de la această dată).', 'info');
+        });
+    } else {
+        showConfirm('Ești sigur că vrei să ștergi această tranzacție?', () => {
+            data.transactions = data.transactions.filter(x => x.id !== id);
+            saveData();
+            showToast('Tranzacție ștearsă.', 'info');
+        });
+    }
 }
 function addAccount(type) {
     openAccountModal(type);
@@ -436,6 +543,16 @@ function updateFormUI() {
     if(type==='credit_payment') document.getElementById('section-credit').style.display='block';
 }
 
+function toggleRecurrenceOptions() {
+    const isRec = document.getElementById('t-is-recurring').checked;
+    document.getElementById('section-recurrence').style.display = isRec ? 'block' : 'none';
+}
+
+function resetRecurrenceForm() {
+    document.getElementById('t-is-recurring').checked = false;
+    toggleRecurrenceOptions();
+}
+
 // Populate Selects when Modal Opens
 function updateSelects() {
     const fill = (id, list) => {
@@ -453,32 +570,103 @@ const form = document.getElementById('transaction-form');
 if(form) {
     form.addEventListener('submit', (e) => {
         e.preventDefault();
-        if(editModeId) {
-            data.transactions = data.transactions.filter(x => x.id !== editModeId);
-        }
         
         const type = document.getElementById('t-type').value;
         const amt = parseFloat(document.getElementById('t-amount').value);
         const cat = document.getElementById('t-category').value;
         const principal = parseFloat(document.getElementById('t-principal').value) || 0;
         const interest = parseFloat(document.getElementById('t-interest').value) || 0;
+        const desc = document.getElementById('t-desc').value;
+        const dateVal = document.getElementById('t-date').value;
         const finalAmt = ['expense','savings_in','credit_payment'].includes(type) ? -amt : amt;
+
+        if (editModeId) {
+            const origT = data.transactions.find(x => x.id === editModeId);
+            if (origT) {
+                const updateT = (t, updateDate = false) => {
+                    if(updateDate) t.date = dateVal;
+                    t.desc = desc;
+                    t.amount = finalAmt;
+                    t.type = type;
+                    t.category = (type === 'expense') ? cat : null;
+                    t.meta = (type === 'credit_payment') ? { principal, interest } : {};
+                };
+
+                const finishEdit = (msg) => {
+                    saveData();
+                    closeTransactionModal();
+                    form.reset();
+                    showToast(msg, 'success');
+                };
+
+                if (origT.seriesId) {
+                    showRecurringEditPrompt(() => {
+                        // Doar Aceasta
+                        updateT(origT, true);
+                        finishEdit('Tranzacție actualizată!');
+                    }, () => {
+                        // Aceasta si Viitoarele
+                        const futureTxs = data.transactions.filter(x => x.seriesId === origT.seriesId && x.date >= origT.date && x.id >= origT.id);
+                        futureTxs.forEach(t => updateT(t, false)); // Nu schimbam data la cele viitoare
+                        finishEdit('Serie actualizată!');
+                    });
+                    return;
+                } else {
+                    // Editare Normala
+                    updateT(origT, true);
+                    finishEdit('Tranzacție actualizată!');
+                    return;
+                }
+            }
+        }
         
-        const t = {
-            id: Date.now(),
-            date: document.getElementById('t-date').value,
-            desc: document.getElementById('t-desc').value,
-            amount: finalAmt,
-            type: type,
-            checked: document.getElementById('t-date').value <= new Date().toISOString().split('T')[0],
-            category: (type === 'expense') ? cat : null,
-            meta: (type === 'credit_payment') ? { principal: principal, interest: interest } : {}
-        };
-        data.transactions.push(t);
+        const isRec = document.getElementById('t-is-recurring').checked;
+        const recFreq = document.getElementById('t-rec-freq').value;
+        let recCount = parseInt(document.getElementById('t-rec-count').value) || 1;
+        const seriesId = isRec ? Date.now() : null;
+        
+        if(!isRec) recCount = 1;
+
+        const startDate = new Date(document.getElementById('t-date').value);
+
+        for(let i = 0; i < recCount; i++) {
+            let nextDate = new Date(startDate);
+            
+            // Calcul data viitoare
+            if (i > 0) {
+                if(recFreq === 'daily') nextDate.setDate(startDate.getDate() + i);
+                if(recFreq === 'weekly') nextDate.setDate(startDate.getDate() + (i * 7));
+                if(recFreq === 'monthly') nextDate.setMonth(startDate.getMonth() + i);
+                if(recFreq === 'quarterly') nextDate.setMonth(startDate.getMonth() + (i * 3));
+                if(recFreq === 'biannually') nextDate.setMonth(startDate.getMonth() + (i * 6));
+                if(recFreq === 'annually') nextDate.setFullYear(startDate.getFullYear() + i);
+            }
+
+            const dateStr = nextDate.toISOString().split('T')[0];
+            const isFuture = dateStr > new Date().toISOString().split('T')[0];
+
+            const t = {
+                id: Date.now() + i, // ID unic
+                date: dateStr,
+                desc: document.getElementById('t-desc').value + (isRec && i > 0 ? ` (${i+1}/${recCount})` : ''),
+                amount: finalAmt,
+                type: type,
+                checked: !isFuture, // Doar cele din trecut/prezent sunt checked automat
+                category: (type === 'expense') ? cat : null,
+                meta: (type === 'credit_payment') ? { principal: principal, interest: interest } : {},
+                seriesId: seriesId
+            };
+            data.transactions.push(t);
+        }
+
         saveData();
         closeTransactionModal();
         form.reset();
-        showToast('Tranzacție salvată!', 'success');
+        if(isRec) {
+            showToast(`Generate ${recCount} tranzacții recurente!`, 'success');
+        } else {
+            showToast('Tranzacție salvată!', 'success');
+        }
     });
 }
 
@@ -495,6 +683,7 @@ function editTransaction(id) {
         document.getElementById('t-principal').value = t.meta.principal || '';
         document.getElementById('t-interest').value = t.meta.interest || '';
     }
+    resetRecurrenceForm(); // La editare nu permitem schimbarea recurentei pentru a nu duplica
     updateFormUI(); updateSelects();
 }
 function cancelEdit() { editModeId = null; if(form) form.reset(); }
@@ -530,6 +719,46 @@ function openDayModal(dateStr) {
 function closeDayModal() { document.getElementById('day-modal').style.display = 'none'; }
 
 // --- SETTINGS ---
+function initSettings() {
+    renderSettingsCategories();
+}
+
+function renderSettingsCategories() {
+    const list = document.getElementById('categories-list');
+    if(!list) return;
+    list.innerHTML = '';
+    data.categories.forEach(cat => {
+        list.innerHTML += `
+            <div class="flex-between" style="padding:10px; background:rgba(255,255,255,0.05); border-radius:8px; border:1px solid var(--border);">
+                <span>${cat}</span>
+                <button class="btn-icon del" onclick="removeCategory('${cat}')"><i class="fas fa-trash"></i></button>
+            </div>
+        `;
+    });
+}
+
+function addNewCategory() {
+    const input = document.getElementById('new-cat-name');
+    const val = input.value.trim();
+    if(val && !data.categories.includes(val)) {
+        data.categories.push(val);
+        saveData();
+        renderSettingsCategories();
+        input.value = '';
+        showToast('Categorie adăugată', 'success');
+    } else {
+        showToast('Nume invalid sau existent', 'warning');
+    }
+}
+
+function removeCategory(cat) {
+    showConfirm(`Ștergi categoria "${cat}"?`, () => {
+         data.categories = data.categories.filter(c => c !== cat);
+         saveData();
+         renderSettingsCategories();
+    });
+}
+
 function toggleTheme() {
     document.body.classList.toggle('dark-mode');
     localStorage.setItem('theme', document.body.classList.contains('dark-mode') ? 'dark' : 'light');
@@ -787,4 +1016,122 @@ function showConfirm(msg, onYes) {
     newNo.addEventListener('click', () => {
         modal.style.display = 'none';
     });
+}
+
+function showRecurringDeletePrompt(onOne, onSeries) {
+    let modal = document.getElementById('rec-del-modal');
+    if(!modal) {
+        modal = document.createElement('div');
+        modal.id = 'rec-del-modal';
+        modal.className = 'modal-overlay';
+        modal.style.zIndex = '10002';
+        modal.innerHTML = `
+            <div class="modal-content text-center" style="max-width:350px;">
+                <div class="mb-15"><i class="fas fa-sync-alt" style="font-size:3rem; color:var(--primary);"></i></div>
+                <h3 class="mb-15" style="justify-content:center; border:none;">Tranzacție Recurentă</h3>
+                <p class="mb-20 text-muted">Cum dorești să ștergi?</p>
+                <div class="flex-col gap-10">
+                    <button class="btn-add w-100" id="btn-del-one">Doar Aceasta</button>
+                    <button class="btn-add w-100" id="btn-del-series" style="background:var(--orange); border-color:var(--orange);">Aceasta și Viitoarele</button>
+                    <button class="btn-backup w-100" id="btn-del-cancel">Anulează</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+    
+    modal.style.display = 'flex';
+    
+    const btnOne = document.getElementById('btn-del-one');
+    const btnSeries = document.getElementById('btn-del-series');
+    const btnCancel = document.getElementById('btn-del-cancel');
+    
+    // Clone to clear listeners
+    const nOne = btnOne.cloneNode(true); const nSeries = btnSeries.cloneNode(true); const nCancel = btnCancel.cloneNode(true);
+    btnOne.parentNode.replaceChild(nOne, btnOne); btnSeries.parentNode.replaceChild(nSeries, btnSeries); btnCancel.parentNode.replaceChild(nCancel, btnCancel);
+    
+    nOne.addEventListener('click', () => { modal.style.display = 'none'; onOne(); });
+    nSeries.addEventListener('click', () => { modal.style.display = 'none'; onSeries(); });
+    nCancel.addEventListener('click', () => { modal.style.display = 'none'; });
+}
+
+// --- HELPERS ---
+function setupCategoryCombobox() {
+    const inputs = document.querySelectorAll('#t-category');
+    inputs.forEach(input => {
+        const dropdown = input.nextElementSibling;
+        if (!dropdown || !dropdown.classList.contains('custom-dropdown')) return;
+
+        const populate = () => {
+            const val = input.value.toLowerCase();
+            dropdown.innerHTML = '';
+            const filtered = data.categories.filter(c => c.toLowerCase().includes(val));
+            
+            if (filtered.length > 0) {
+                filtered.forEach(cat => {
+                    const div = document.createElement('div');
+                    div.className = 'dropdown-item';
+                    div.innerText = cat;
+                    div.onclick = () => {
+                        input.value = cat;
+                        dropdown.style.display = 'none';
+                    };
+                    dropdown.appendChild(div);
+                });
+                dropdown.style.display = 'block';
+            } else {
+                dropdown.style.display = 'none';
+            }
+        };
+
+        input.oninput = populate;
+        input.onfocus = populate;
+    });
+
+    // Global click to close
+    document.addEventListener('click', (e) => {
+        inputs.forEach(input => {
+            const dropdown = input.nextElementSibling;
+            if (dropdown && !input.contains(e.target) && !dropdown.contains(e.target)) {
+                dropdown.style.display = 'none';
+            }
+        });
+    });
+}
+
+function showRecurringEditPrompt(onOne, onSeries) {
+    let modal = document.getElementById('rec-edit-modal');
+    if(!modal) {
+        modal = document.createElement('div');
+        modal.id = 'rec-edit-modal';
+        modal.className = 'modal-overlay';
+        modal.style.zIndex = '10002';
+        modal.innerHTML = `
+            <div class="modal-content text-center" style="max-width:350px;">
+                <div class="mb-15"><i class="fas fa-edit" style="font-size:3rem; color:var(--primary);"></i></div>
+                <h3 class="mb-15" style="justify-content:center; border:none;">Editare Serie</h3>
+                <p class="mb-20 text-muted">Cum dorești să aplici modificarea?</p>
+                <div class="flex-col gap-10">
+                    <button class="btn-add w-100" id="btn-edit-one">Doar Aceasta</button>
+                    <button class="btn-add w-100" id="btn-edit-series" style="background:var(--orange); border-color:var(--orange);">Aceasta și Viitoarele</button>
+                    <button class="btn-backup w-100" id="btn-edit-cancel">Anulează</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+    
+    modal.style.display = 'flex';
+    
+    const btnOne = document.getElementById('btn-edit-one');
+    const btnSeries = document.getElementById('btn-edit-series');
+    const btnCancel = document.getElementById('btn-edit-cancel');
+    
+    // Clone to clear listeners
+    const nOne = btnOne.cloneNode(true); const nSeries = btnSeries.cloneNode(true); const nCancel = btnCancel.cloneNode(true);
+    btnOne.parentNode.replaceChild(nOne, btnOne); btnSeries.parentNode.replaceChild(nSeries, btnSeries); btnCancel.parentNode.replaceChild(nCancel, btnCancel);
+    
+    nOne.addEventListener('click', () => { modal.style.display = 'none'; onOne(); });
+    nSeries.addEventListener('click', () => { modal.style.display = 'none'; onSeries(); });
+    nCancel.addEventListener('click', () => { modal.style.display = 'none'; });
 }

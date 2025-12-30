@@ -562,6 +562,10 @@ if(form) {
     });
 }
 
+function stripCounter(desc) {
+    return desc.replace(/\s*\(\d+\/\d+\)$/, '');
+}
+
 function handleTransactionSubmit() {
     const type = document.getElementById('t-type').value;
     const amt = parseFloat(document.getElementById('t-amount').value);
@@ -582,7 +586,7 @@ function handleTransactionSubmit() {
         if (origT) {
             const updateT = (t, updateDate = false) => {
                 if(updateDate) t.date = dateVal;
-                t.desc = desc;
+                t.desc = stripCounter(desc); // Strip counter for single edit too
                 t.amount = finalAmt;
                 t.type = type;
                 t.category = (type === 'expense') ? cat : null;
@@ -591,6 +595,15 @@ function handleTransactionSubmit() {
                 t.checked = updateDate ? (dateVal <= new Date().toISOString().split('T')[0]) : t.checked;
                 
                 const isRec = document.getElementById('t-is-recurring').checked;
+                if (isRec) {
+                    t.recurrenceMeta = { 
+                        freq: document.getElementById('t-rec-freq').value, 
+                        count: parseInt(document.getElementById('t-rec-count').value) || 1
+                    };
+                } else {
+                    t.recurrenceMeta = null;
+                }
+
                 if (isRec && !t.seriesId) {
                     t.seriesId = Date.now();
                     generateFutureTransactions(t, true);
@@ -606,9 +619,11 @@ function handleTransactionSubmit() {
 
             if (origT.seriesId) {
                 showRecurringEditPrompt(() => {
+                    // Doar Aceasta
                     updateT(origT, true);
                     finishEdit('Tranzacție actualizată!');
                 }, () => {
+                    // Aceasta si Viitoarele
                     const oldDate = origT.date;
                     updateT(origT, true);
                     
@@ -625,6 +640,75 @@ function handleTransactionSubmit() {
                     else origT.seriesId = null;
 
                     finishEdit('Serie actualizată!');
+                }, () => {
+                    // TOATE (Serie Completa)
+                    // 1. Gasim toate tranzactiile din serie
+                    const seriesTxs = data.transactions.filter(x => x.seriesId === origT.seriesId).sort((a,b) => a.id - b.id);
+                    const firstT = seriesTxs[0];
+                    
+                    // 2. Calculam diferenta de timp intre data veche a tranzactiei editate si data noua
+                    const oldDateObj = new Date(origT.date);
+                    const newDateObj = new Date(dateVal);
+                    const timeDiff = newDateObj - oldDateObj; // milisecunde
+                    
+                    // 3. Calculam noua data de start a seriei
+                    const oldStartObj = new Date(firstT.date);
+                    const newStartObj = new Date(oldStartObj.getTime() + timeDiff);
+                    const newStartDate = newStartObj.toISOString().split('T')[0];
+
+                    // 4. Salvam statusul 'checked' al tranzactiilor existente
+                    const checkedStates = seriesTxs.map(x => x.checked);
+
+                    // 5. Stergem toata seria veche
+                    data.transactions = data.transactions.filter(x => x.seriesId !== origT.seriesId);
+
+                    // 6. Generam seria noua
+                    const recFreq = document.getElementById('t-rec-freq').value;
+                    const recCount = parseInt(document.getElementById('t-rec-count').value) || 1;
+                    
+                    const baseT = {
+                        desc: stripCounter(desc),
+                        amount: finalAmt,
+                        type: type,
+                        category: (type === 'expense') ? cat : null,
+                        meta: (type === 'credit_payment') ? { principal, interest } : {},
+                        accountId: accountId,
+                        seriesId: origT.seriesId, // Pastram ID-ul seriei
+                        recurrenceMeta: { freq: recFreq, count: recCount }
+                    };
+
+                    const startDate = new Date(newStartDate);
+
+                    for(let i = 0; i < recCount; i++) {
+                        let nextDate = new Date(startDate);
+                        if (i > 0) {
+                             if(recFreq === 'daily') nextDate.setDate(startDate.getDate() + i);
+                             if(recFreq === 'weekly') nextDate.setDate(startDate.getDate() + (i * 7));
+                             if(recFreq === 'monthly') nextDate.setMonth(startDate.getMonth() + i);
+                             if(recFreq === 'quarterly') nextDate.setMonth(startDate.getMonth() + (i * 3));
+                             if(recFreq === 'biannually') nextDate.setMonth(startDate.getMonth() + (i * 6));
+                             if(recFreq === 'annually') nextDate.setFullYear(startDate.getFullYear() + i);
+                        }
+                        
+                        const dateStr = nextDate.toISOString().split('T')[0];
+                        
+                        const t = { ...baseT };
+                        t.id = Date.now() + i; // ID-uri noi
+                        t.date = dateStr;
+                        
+                        // Restauram statusul checked daca exista, altfel logica default
+                        if (i < checkedStates.length) {
+                            t.checked = checkedStates[i];
+                        } else {
+                            t.checked = dateStr <= new Date().toISOString().split('T')[0];
+                        }
+                        
+                        t.desc = baseT.desc + ` (${i+1}/${recCount})`;
+                        
+                        data.transactions.push(t);
+                    }
+
+                    finishEdit('Serie actualizată complet!');
                 });
                 return;
             } else {
@@ -687,7 +771,7 @@ function generateFutureTransactions(baseT, skipFirst) {
         t.id = Date.now() + i;
         t.date = dateStr;
         t.checked = !isFuture;
-        t.desc = baseT.desc + ` (${i+1}/${recCount})`;
+        t.desc = stripCounter(baseT.desc) + ` (${i+1}/${recCount})`;
         
         data.transactions.push(t);
     }
@@ -698,7 +782,7 @@ function editTransaction(id) {
     editModeId = id;
     openTransactionModal();
     document.getElementById('t-date').value = t.date;
-    document.getElementById('t-desc').value = t.desc;
+    document.getElementById('t-desc').value = stripCounter(t.desc); // Strip counter on edit load
     document.getElementById('t-amount').value = Math.abs(t.amount);
     document.getElementById('t-type').value = t.type;
     if(t.category) document.getElementById('t-category').value = t.category;
@@ -710,7 +794,6 @@ function editTransaction(id) {
     document.getElementById('t-is-recurring').checked = !!t.seriesId;
     toggleRecurrenceOptions();
     
-    // Populam campurile de recurenta daca exista date salvate
     if (t.recurrenceMeta) {
         document.getElementById('t-rec-freq').value = t.recurrenceMeta.freq || 'monthly';
         document.getElementById('t-rec-count').value = t.recurrenceMeta.count;
@@ -1055,7 +1138,7 @@ function showRecurringDeletePrompt(onOne, onSeries) {
     nCancel.addEventListener('click', () => { modal.style.display = 'none'; });
 }
 
-function showRecurringEditPrompt(onOne, onSeries) {
+function showRecurringEditPrompt(onOne, onSeries, onAll) {
     let modal = document.getElementById('rec-edit-modal');
     if(!modal) {
         modal = document.createElement('div');
@@ -1070,6 +1153,7 @@ function showRecurringEditPrompt(onOne, onSeries) {
                 <div class="flex-col gap-10">
                     <button class="btn-add w-100" id="btn-edit-one">Doar Aceasta</button>
                     <button class="btn-add w-100" id="btn-edit-series" style="background:var(--orange); border-color:var(--orange);">Aceasta și Viitoarele</button>
+                    <button class="btn-add w-100" id="btn-edit-all" style="background:var(--red); border-color:var(--red);">Toate (Serie Completă)</button>
                     <button class="btn-backup w-100" id="btn-edit-cancel">Anulează</button>
                 </div>
             </div>`;
@@ -1078,11 +1162,15 @@ function showRecurringEditPrompt(onOne, onSeries) {
     modal.style.display = 'flex';
     const btnOne = document.getElementById('btn-edit-one');
     const btnSeries = document.getElementById('btn-edit-series');
+    const btnAll = document.getElementById('btn-edit-all');
     const btnCancel = document.getElementById('btn-edit-cancel');
-    const nOne = btnOne.cloneNode(true); const nSeries = btnSeries.cloneNode(true); const nCancel = btnCancel.cloneNode(true);
-    btnOne.parentNode.replaceChild(nOne, btnOne); btnSeries.parentNode.replaceChild(nSeries, btnSeries); btnCancel.parentNode.replaceChild(nCancel, btnCancel);
+    
+    const nOne = btnOne.cloneNode(true); const nSeries = btnSeries.cloneNode(true); const nAll = btnAll.cloneNode(true); const nCancel = btnCancel.cloneNode(true);
+    btnOne.parentNode.replaceChild(nOne, btnOne); btnSeries.parentNode.replaceChild(nSeries, btnSeries); btnAll.parentNode.replaceChild(nAll, btnAll); btnCancel.parentNode.replaceChild(nCancel, btnCancel);
+    
     nOne.addEventListener('click', () => { modal.style.display = 'none'; onOne(); });
     nSeries.addEventListener('click', () => { modal.style.display = 'none'; onSeries(); });
+    nAll.addEventListener('click', () => { modal.style.display = 'none'; onAll(); });
     nCancel.addEventListener('click', () => { modal.style.display = 'none'; });
 }
 

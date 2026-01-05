@@ -1,0 +1,23 @@
+{
+  "name": "budgetapptowindows",
+  "version": "1.0.0",
+  "description": "",
+  "main": "main.js",
+  "scripts": {
+"start": "electron . --force-dark-mode"  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cristiP2/buget-app.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/cristiP2/buget-app/issues"
+  },
+  "homepage": "https://github.com/cristiP2/buget-app#readme",
+  "devDependencies": {
+    "electron": "^39.2.7"
+  }
+}

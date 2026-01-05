@@ -44,6 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if(monthFilter) {
         if(!localStorage.getItem('current_month')) localStorage.setItem('current_month', new Date().toISOString().slice(0, 7));
         monthFilter.value = localStorage.getItem('current_month');
+
     }
 
     // 4. Page Specific Renders
@@ -79,7 +80,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const type = document.getElementById('acc-type').value;
             const name = document.getElementById('acc-name').value;
             const balance = parseFloat(document.getElementById('acc-balance').value) || 0;
-            const icon = document.querySelector('input[name="acc-icon"]:checked').value;
+            const iconRadio = document.querySelector('input[name="acc-icon"]:checked');
+            const icon = iconRadio ? iconRadio.value : 'fa-wallet';
 
             if (id) {
                 let list = (type === 'income') ? data.incomeSources : (type === 'savings' ? data.savings : data.debts);
@@ -87,11 +89,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 if(item) {
                     item.name = name;
                     item.icon = icon;
-                    if(type !== 'income') item.balance = balance;
+                    if(type !== 'income') {
+                        if (type === 'debt') {
+                            // Treat entered value as initial credit amount; recompute remaining using paid principal
+                            item.initial = balance;
+                            const paid = data.transactions.filter(t => t.type === 'credit_payment' && t.accountId == item.id && t.checked).reduce((s,tx) => s + ((tx.meta && tx.meta.principal) ? tx.meta.principal : 0), 0);
+                            item.balance = Math.max(0, item.initial - paid);
+                        } else {
+                            item.balance = balance;
+                        }
+                    }
                 }
             } else {
                 const item = { id: Date.now(), name: name, icon: icon };
-                if(type !== 'income') item.balance = balance; else item.total = 0;
+                if(type !== 'income') {
+                    item.balance = balance;
+                    if (type === 'debt') item.initial = balance;
+                } else item.total = 0;
                 if(type === 'income') data.incomeSources.push(item); else if(type === 'savings') data.savings.push(item); else data.debts.push(item);
             }
             saveData();
@@ -439,9 +453,19 @@ function renderAllLists() {
             const val = type==='income' ? item.total : item.balance;
             total += val;
             const iconClass = item.icon || (type==='income' ? 'fa-wallet' : (type==='savings' ? 'fa-piggy-bank' : 'fa-university'));
+            let extraHtml = '';
+            const amountLabel = (type === 'income') ? 'Venit' : 'Sold';
+            // For debt accounts show paid vs remaining based on checked credit payments
+            if (type === 'debt') {
+                const paid = data.transactions.filter(t => t.type === 'credit_payment' && t.accountId == item.id && t.checked).reduce((s,tx) => s + ((tx.meta && tx.meta.principal) ? tx.meta.principal : 0), 0);
+                const remaining = (typeof item.balance === 'number') ? item.balance : 0;
+                const initial = (typeof item.initial === 'number') ? item.initial : (paid + remaining);
+                const pct = initial > 0 ? Math.round((paid / initial) * 100) : 0;
+                extraHtml = `<div style="margin-top:6px;"><small>Plătit: <span class="text-green">${paid.toFixed(2)} ${cur}</span> · Restant: <span class="text-red">${remaining.toFixed(2)} ${cur}</span> <small class="text-muted">(${pct}% plătit)</small></small></div>`;
+            }
             el.innerHTML += `
                 <div class="account-item">
-                    <div class="account-info" style="display:flex; align-items:center; gap:12px;"><i class="fas ${iconClass} ${color}" style="font-size:1.3rem; width:25px; text-align:center;"></i><div><h4>${item.name}</h4><small>Sold: <span class="${color}">${val.toFixed(2)} ${cur}</span></small></div></div>
+                    <div class="account-info" style="display:flex; align-items:center; gap:12px;"><i class="fas ${iconClass} ${color}" style="font-size:1.3rem; width:25px; text-align:center;"></i><div><h4>${item.name}</h4><small>${amountLabel}: <span class="${color}">${val.toFixed(2)} ${cur}</span></small>${extraHtml}</div></div>
                     <div class="actions"><button class="btn-icon" onclick="editAccount('${type}', ${item.id})"><i class="fas fa-pen"></i></button>
                     <button class="btn-icon del" onclick="deleteAccount('${type}', ${item.id})"><i class="fas fa-times"></i></button></div>
                 </div>`;
@@ -455,10 +479,66 @@ function renderAllLists() {
     render('list-debts', data.debts, 'debt', 'text-red');
 }
 
+// Recompute all account balances from transactions (build from scratch using checked transactions)
+function recomputeAllBalances() {
+    // Aggregate checked transactions from the start and rebuild account balances
+    // Prepare aggregates
+    const incomeAgg = {};
+    const savingsAgg = {};
+    const paidDebtAgg = {};
+
+    const txs = [...data.transactions].sort((a,b) => new Date(a.date) - new Date(b.date) || a.id - b.id);
+    txs.forEach(t => {
+        if (!t.checked) return; // only applied transactions affect balances
+        if (!t.accountId) return;
+        const aid = t.accountId;
+        if (t.type === 'income') {
+            incomeAgg[aid] = (incomeAgg[aid] || 0) + t.amount;
+        } else if (t.type === 'savings_in') {
+            savingsAgg[aid] = (savingsAgg[aid] || 0) + Math.abs(t.amount);
+        } else if (t.type === 'savings_out') {
+            savingsAgg[aid] = (savingsAgg[aid] || 0) - Math.abs(t.amount);
+        } else if (t.type === 'credit_payment') {
+            const principal = (t.meta && t.meta.principal) ? t.meta.principal : 0;
+            paidDebtAgg[aid] = (paidDebtAgg[aid] || 0) + principal;
+        }
+    });
+
+    // Apply aggregates back to accounts
+    data.incomeSources.forEach(acc => { acc.total = incomeAgg[acc.id] || 0; });
+    data.savings.forEach(acc => { acc.balance = savingsAgg[acc.id] || 0; });
+    data.debts.forEach(acc => {
+        const paid = paidDebtAgg[acc.id] || 0;
+        if (typeof acc.initial === 'number') {
+            acc.balance = Math.max(0, acc.initial - paid);
+        } else {
+            const remaining = typeof acc.balance === 'number' ? acc.balance : 0;
+            acc.initial = paid + remaining;
+            acc.balance = Math.max(0, acc.initial - paid);
+        }
+    });
+}
+
+function recomputeAllBalancesConfirm() {
+    showConfirm('Această acțiune va recalcula toate soldurile pe baza tranzacțiilor bifate. Continui?', () => {
+        recomputeAllBalances();
+        saveData();
+        renderAllLists();
+        showToast('Soldurile au fost recalculate.', 'success');
+    });
+}
+
 // --- SHARED ACTIONS ---
 function toggleCheck(id) {
     const t = data.transactions.find(x => x.id === id);
-    if(t) { t.checked = !t.checked; saveData(); }
+    if(!t) return;
+    t.checked = !t.checked;
+    // Apply or revert account balance when toggling checked state
+    if (t.accountId) {
+        if (t.checked) updateAccountBalance(t.type, t.accountId, Math.abs(t.amount), t.meta, false);
+        else updateAccountBalance(t.type, t.accountId, Math.abs(t.amount), t.meta, true);
+    }
+    saveData();
 }
 function deleteTransaction(id) {
     const t = data.transactions.find(x => x.id === id);
@@ -467,6 +547,7 @@ function deleteTransaction(id) {
     if (t.seriesId) {
         showRecurringDeletePrompt(() => {
             data.transactions = data.transactions.filter(x => x.id !== id);
+            if (t.checked) updateAccountBalance(t.type, t.accountId, Math.abs(t.amount), t.meta, true); // Revert Balance only if it affected accounts
             saveData();
             showToast('Tranzacție ștearsă.', 'info');
         }, () => {
@@ -474,12 +555,16 @@ function deleteTransaction(id) {
                 if (x.seriesId === t.seriesId && x.date >= t.date && x.id >= t.id) return false;
                 return true;
             });
+            // Notă: Pentru ștergerea în serie, revertim doar tranzacția curentă selectată, sau ar trebui toate?
+            // De regulă, cele viitoare nu au afectat încă soldul (fiind unchecked/viitor), deci revertim doar pe aceasta.
+            if (t.checked) updateAccountBalance(t.type, t.accountId, Math.abs(t.amount), t.meta, true);
             saveData();
             showToast('Serie ștearsă (de la această dată).', 'info');
         });
     } else {
         showConfirm('Ești sigur că vrei să ștergi această tranzacție?', () => {
             data.transactions = data.transactions.filter(x => x.id !== id);
+            if (t.checked) updateAccountBalance(t.type, t.accountId, Math.abs(t.amount), t.meta, true); // Revert Balance only if it had been applied
             saveData();
             showToast('Tranzacție ștearsă.', 'info');
         });
@@ -513,7 +598,9 @@ function openAccountModal(type, id = null) {
         const item = list.find(x => x.id == id);
         if(item) {
             document.getElementById('acc-name').value = item.name;
-            document.getElementById('acc-balance').value = (type !== 'income') ? item.balance : '';
+            // For debts, show `initial` if available (user likely wants to edit original credit amount)
+            if (type === 'debt') document.getElementById('acc-balance').value = (typeof item.initial === 'number') ? item.initial : (typeof item.balance === 'number' ? item.balance : '');
+            else document.getElementById('acc-balance').value = (type !== 'income') ? item.balance : '';
             const iconVal = item.icon || 'fa-wallet';
             const radio = document.querySelector(`input[name="acc-icon"][value="${iconVal}"]`);
             if(radio) radio.checked = true;
@@ -572,6 +659,23 @@ function stripCounter(desc) {
     return desc.replace(/\s*\(\d+\/\d+\)$/, '');
 }
 
+// --- HELPER: ACTUALIZARE SOLDURI ---
+function updateAccountBalance(type, accountId, amount, meta, reverse = false) {
+    if (!accountId) return;
+    const factor = reverse ? -1 : 1;
+
+    if (type === 'income') {
+        const acc = data.incomeSources.find(x => x.id == accountId);
+        if (acc) acc.total += (amount * factor);
+    } else if (type === 'savings_in') {
+        const acc = data.savings.find(x => x.id == accountId);
+        if (acc) acc.balance += (amount * factor);
+    } else if (type === 'credit_payment') {
+        const acc = data.debts.find(x => x.id == accountId);
+        if (acc && meta && meta.principal) acc.balance -= (meta.principal * factor);
+    }
+}
+
 function handleTransactionSubmit() {
     const type = document.getElementById('t-type').value;
     const amt = parseFloat(document.getElementById('t-amount').value);
@@ -590,6 +694,9 @@ function handleTransactionSubmit() {
     if (editModeId) {
         const origT = data.transactions.find(x => x.id === editModeId);
         if (origT) {
+            // 1. Revertim soldul vechi înainte de modificare (doar dacă fusese aplicat)
+            if (origT.checked) updateAccountBalance(origT.type, origT.accountId, Math.abs(origT.amount), origT.meta, true);
+
             const updateT = (t, updateDate = false) => {
                 if(updateDate) t.date = dateVal;
                 t.desc = stripCounter(desc); // Strip counter for single edit too
@@ -619,6 +726,8 @@ function handleTransactionSubmit() {
             };
 
             const finishEdit = (msg) => {
+                // 2. Aplicăm noul sold după modificare (doar dacă tranzacția e marcată ca "checked")
+                if (origT.checked) updateAccountBalance(type, accountId, amt, { principal, interest }, false);
                 saveData();
                 closeTransactionModal();
                 form.reset();
@@ -756,6 +865,9 @@ function handleTransactionSubmit() {
     }
     
     if (!isRec && t.date <= new Date().toISOString().split('T')[0]) t.checked = true;
+
+    // ACTUALIZARE SOLD (Doar pentru tranzacția curentă, nu și viitoarele generate)
+    if (t.checked) updateAccountBalance(type, accountId, amt, t.meta, false);
 
     saveData();
     closeTransactionModal();
